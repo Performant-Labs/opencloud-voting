@@ -44,15 +44,57 @@ A feature voting board built as an OpenCloud Web extension with a SQLite-backed 
 
 ## Phase 4: Authentication & Security
 
-- [ ] Configure OIDC token validation in API sidecar
-- [ ] Add rate limiting
-- [ ] Add input sanitization
+> **Architecture note (discovered in research):**
+> OpenCloud's **proxy service** is the auth gateway. It validates OIDC tokens
+> before forwarding requests to backend services. Our API sidecar does NOT
+> implement its own OIDC flow — instead, the proxy handles auth and passes
+> identity to the sidecar via headers.
+
+### 4a. Proxy routing — `proxy.yaml`
+
+- [ ] Create `config/proxy.yaml` with `additional_policies` entry:
+  ```yaml
+  additional_policies:
+    - name: default
+      routes:
+        - endpoint: /api/voting/
+          backend: http://voting-api:3456
+          unprotected: false          # proxy enforces auth
+          skip_x_access_token: false  # proxy forwards JWT
+  ```
+- [ ] Mount `proxy.yaml` into the OpenCloud container via docker-compose
+
+### 4b. API auth middleware — decode `X-Access-Token`
+
+The proxy sets an `X-Access-Token` header containing the user's JWT on every
+authenticated request forwarded to the backend. The sidecar must:
+
+- [ ] Decode the JWT from the `X-Access-Token` header (using `jose` or `jsonwebtoken`)
+- [ ] Extract user identity from JWT claims (`preferred_username` or `sub`)
+- [ ] Validate the JWT signature against the OpenCloud OIDC JWKS endpoint
+- [ ] Fall back to Basic Auth for local dev/testing only (behind `NODE_ENV !== 'production'`)
+- [ ] Remove the invented `X-Opencloud-User` header from the current middleware
+
+### 4c. Web extension — token forwarding
+
+The Vue web extension runs inside OpenCloud Web, which manages the user session.
+When the extension makes `fetch()` calls to the API:
+
+- [ ] Ensure `credentials: 'include'` is set (already done)
+- [ ] Verify the proxy transparently forwards the auth context to the sidecar
+- [ ] If needed, attach the Bearer token from `@opencloud-eu/web-pkg` auth composable
+
+### 4d. Input sanitization & rate limiting
+
+- [ ] Sanitize feature title/description (strip HTML, enforce max length)
+- [ ] Add basic rate limiting via Hono middleware (e.g., 30 requests/min per user)
 
 ## Phase 5: Production Deployment
 
-- [ ] Build and publish API Docker image
+- [ ] Build and publish API Docker image to GHCR
+- [ ] Create `proxy.yaml` template in `config/` for admin reference
 - [ ] Document deployment procedure for OpenCloud admins
-- [ ] Write admin configuration guide
+- [ ] Write admin configuration guide (env vars, volume mounts, proxy routing)
 
 ## Phase 6: CI/CD
 
