@@ -1,32 +1,5 @@
-# Dependencies
 node_modules/
-
-# Build output
 dist/
-*.tsbuildinfo
-
-# SQLite databases
-*.db
-*.db-journal
-*.db-wal
-*.db-shm
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Vite
-.vite/
-
-# pnpm
-pnpm-lock.yaml
-
-# Environment
+*.log
 .env
-.env.local
+.DS_Store

@@ -4,24 +4,30 @@ A feature voting board for OpenCloud. Users can submit feature requests, vote fo
 
 ## Architecture
 
-This is a two-tier application:
+This is a **frontend-only** OpenCloud web extension. All data is stored as JSON files in the user's personal OpenCloud space via WebDAV — no additional containers or backend services needed.
 
-- **`web/`** — Vue.js/TypeScript OpenCloud web extension (frontend UI)
-- **`api/`** — Hono + SQLite REST API sidecar (backend persistence)
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture decision record.
 
 ```
-┌─────────────────┐     ┌──────────────────────┐
-│  OpenCloud Web   │     │  voting-api sidecar   │
-│  (serves web/)   │────▶│  Hono + SQLite        │
-│  Port 9200       │     │  Port 3456            │
-└─────────────────┘     └──────────────────────┘
+┌───────────────────────────────────┐
+│  OpenCloud Web                    │
+│  ┌─────────────────────────────┐  │
+│  │  feature-voting extension   │  │
+│  │  (Vue.js + TypeScript)      │  │
+│  │         │                   │  │
+│  │    WebDAV fetch()           │  │
+│  │         ▼                   │  │
+│  │  Personal Space             │  │
+│  │  /.feature-voting/data.json │  │
+│  └─────────────────────────────┘  │
+└───────────────────────────────────┘
 ```
 
 ## Prerequisites
 
 - [pnpm](https://pnpm.io/installation) (v10+)
-- [Docker](https://docs.docker.com/get-docker/) and Docker Compose
 - Node.js 22+
+- A running OpenCloud instance
 
 ## Quick Start
 
@@ -29,53 +35,61 @@ This is a two-tier application:
 # Install dependencies
 make install
 
-# Start development
+# Build the extension
+make build
+
+# Copy to OpenCloud apps directory
+cp -r web/dist/* /path/to/opencloud/web/assets/apps/feature-voting/
+```
+
+## Development
+
+```bash
+# Watch mode (auto-rebuilds on changes)
 make dev
 ```
 
-This starts:
-1. The API dev server on `http://localhost:3456`
-2. The web extension in watch mode (auto-rebuilds on changes)
-
-## Development with OpenCloud
-
-To see the extension inside OpenCloud:
-
-1. Build the web extension: `cd web && pnpm build`
-2. Copy `web/dist/` contents to your OpenCloud's `apps/feature-voting/` directory
-3. Start the API sidecar alongside OpenCloud
-4. Restart OpenCloud
-
-For DDEV-based development with `pl-opencloud-server`, see [docs/PLAN.md](docs/PLAN.md).
+For development with `pl-opencloud-server`, the built extension is automatically mounted via the apps directory.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `make install` | Install all dependencies |
-| `make build` | Production build (API + web) |
-| `make dev` | Start dev servers |
-| `make test` | Run all tests |
-| `make lint` | Lint web extension |
-| `make docker-build` | Build API Docker image |
+| `make install` | Install dependencies |
+| `make build` | Production build |
+| `make dev` | Build in watch mode |
+| `make test` | Run unit tests |
+| `make lint` | Lint code |
 | `make clean` | Remove build artifacts |
 
-## API Endpoints
+## Data Model
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/features` | List all features + user's voted IDs |
-| `POST` | `/api/features` | Create a feature request |
-| `DELETE` | `/api/features/:id` | Delete own feature |
-| `POST` | `/api/features/:id/vote` | Toggle vote on a feature |
-| `GET` | `/health` | Health check |
+All voting data is stored in a single JSON file at `~/.feature-voting/data.json` in the user's personal OpenCloud space:
+
+```json
+{
+  "features": [
+    {
+      "id": "m1abc123",
+      "title": "Dark mode",
+      "description": "Add a dark theme",
+      "userId": "alice",
+      "voteCount": 3,
+      "createdAt": "2026-03-28T12:00:00Z"
+    }
+  ],
+  "votes": {
+    "m1abc123": ["alice", "bob", "carol"]
+  }
+}
+```
 
 ## Tech Stack
 
-- **Frontend**: Vue 3, TypeScript, `@opencloud-eu/web-pkg`, Vite
-- **Backend**: Hono, better-sqlite3, TypeScript
+- **Frontend**: Vue 3, TypeScript, `@opencloud-eu/web-pkg`
+- **Storage**: OpenCloud WebDAV (personal space)
+- **Build**: Vite
 - **Testing**: Vitest
-- **Deployment**: Docker (API sidecar), static JS (web extension)
 
 ## License
 

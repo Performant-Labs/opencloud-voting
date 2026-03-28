@@ -1,70 +1,186 @@
 import { ref, computed } from 'vue'
-import type { Feature, FeatureListResponse, VoteToggleResponse } from '../types'
-
-const PAGE_SIZE = 50
+import type { Feature, FeatureWithVoted, VotingData } from '../types'
 
 /**
- * Composable for the voting API.
+ * Composable for the voting API using OpenCloud WebDAV storage.
  *
- * URL resolution:
- * When deployed behind the OpenCloud proxy, the API is accessed at
- * /api/voting/features (the proxy routes /api/voting/* → voting-api:3456/*).
+ * All voting data is stored as a single JSON file in the user's personal
+ * space at `.feature-voting/data.json`. The file is read/written via
+ * authenticated WebDAV requests using the OIDC session.
  *
- * Token handling:
- * OpenCloud Web manages the OIDC session. The access token must be passed
- * to this composable so it can attach it as a Bearer header. The proxy
- * then forwards it as X-Access-Token to the sidecar.
+ * Concurrency: uses ETag-based optimistic locking on writes.
+ * If a conflict occurs (HTTP 412), the data is re-read and the
+ * operation is retried once.
  */
-export function useVotingApi(options?: { apiBaseUrl?: string; accessToken?: () => string | undefined }) {
-  const baseUrl = options?.apiBaseUrl || '/api/voting'
+
+const DATA_PATH = '.feature-voting/data.json'
+
+function emptyData(): VotingData {
+  return { features: [], votes: {} }
+}
+
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+}
+
+export function useVotingApi(options?: {
+  accessToken?: () => string | undefined
+}) {
   const getToken = options?.accessToken
-  const features = ref<Feature[]>([])
-  const votedIds = ref<Set<number>>(new Set())
+
+  const features = ref<FeatureWithVoted[]>([])
   const loading = ref(false)
   const submitting = ref(false)
   const error = ref<string | null>(null)
-  const total = ref(0)
-  const offset = ref(0)
-  const hasMore = computed(() => offset.value + features.value.length < total.value)
+  const total = computed(() => features.value.length)
 
-  async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...(opts.headers as Record<string, string>)
-    }
+  // Current user ID extracted from the OIDC token
+  let currentUserId = ''
 
-    // Attach Bearer token if available (provided by OpenCloud Web session)
+  // ETag for optimistic concurrency
+  let currentETag = ''
+
+  /**
+   * Build the WebDAV URL for the voting data file.
+   * Uses /remote.php/dav/files/{username}/ which is the standard WebDAV path.
+   */
+  function davUrl(username: string): string {
+    return `/remote.php/dav/files/${username}/${DATA_PATH}`
+  }
+
+  function davFolderUrl(username: string): string {
+    return `/remote.php/dav/files/${username}/.feature-voting/`
+  }
+
+  function authHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {}
     const token = getToken?.()
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     }
-
-    const res = await fetch(`${baseUrl}${path}`, {
-      headers,
-      credentials: 'include',
-      ...opts
-    })
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({ error: res.statusText }))
-      throw new Error(data.error || `HTTP ${res.status}`)
-    }
-
-    return res.json()
+    return headers
   }
 
+  /**
+   * Decode the JWT to extract user identity (without validation —
+   * the server already validated it).
+   */
+  function getUserId(): string {
+    if (currentUserId) return currentUserId
+    const token = getToken?.()
+    if (!token) return 'anonymous'
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      currentUserId = payload.preferred_username || payload.sub || 'anonymous'
+    } catch {
+      currentUserId = 'anonymous'
+    }
+    return currentUserId
+  }
+
+  /**
+   * Read the voting data file. Returns empty data if the file doesn't exist.
+   */
+  async function readData(): Promise<VotingData> {
+    const username = getUserId()
+    const res = await fetch(davUrl(username), {
+      method: 'GET',
+      headers: {
+        ...authHeaders(),
+        'Accept': 'application/json'
+      }
+    })
+
+    if (res.status === 404) {
+      currentETag = ''
+      return emptyData()
+    }
+
+    if (!res.ok) {
+      throw new Error(`Failed to read voting data: ${res.status} ${res.statusText}`)
+    }
+
+    currentETag = res.headers.get('ETag') || ''
+    const text = await res.text()
+    try {
+      return JSON.parse(text) as VotingData
+    } catch {
+      return emptyData()
+    }
+  }
+
+  /**
+   * Write the voting data file. Creates the parent folder if needed.
+   * Uses If-Match header for optimistic concurrency.
+   */
+  async function writeData(data: VotingData, retry = true): Promise<void> {
+    const username = getUserId()
+    const body = JSON.stringify(data, null, 2)
+
+    const headers: Record<string, string> = {
+      ...authHeaders(),
+      'Content-Type': 'application/json'
+    }
+
+    // Use ETag for optimistic concurrency (skip on first write)
+    if (currentETag) {
+      headers['If-Match'] = currentETag
+    }
+
+    const res = await fetch(davUrl(username), {
+      method: 'PUT',
+      headers,
+      body
+    })
+
+    // 409 = parent folder doesn't exist → create it and retry
+    if (res.status === 409) {
+      await fetch(davFolderUrl(username), {
+        method: 'MKCOL',
+        headers: authHeaders()
+      })
+      // Retry without ETag since the file doesn't exist yet
+      currentETag = ''
+      return writeData(data, false)
+    }
+
+    // 412 = ETag mismatch (concurrent edit) → re-read and retry once
+    if (res.status === 412 && retry) {
+      // Re-read to get fresh data — caller must re-apply their change
+      throw new Error('CONFLICT')
+    }
+
+    if (!res.ok) {
+      throw new Error(`Failed to write voting data: ${res.status} ${res.statusText}`)
+    }
+
+    // Update ETag from response
+    currentETag = res.headers.get('ETag') || ''
+  }
+
+  /**
+   * Transform raw data into the view model with voted status.
+   */
+  function toFeatureList(data: VotingData, userId: string): FeatureWithVoted[] {
+    return data.features
+      .map((f) => ({
+        ...f,
+        voteCount: (data.votes[f.id] || []).length,
+        voted: (data.votes[f.id] || []).includes(userId)
+      }))
+      .sort((a, b) => b.voteCount - a.voteCount || b.createdAt.localeCompare(a.createdAt))
+  }
+
+  /**
+   * Load all features from storage.
+   */
   async function loadFeatures(): Promise<void> {
     loading.value = true
     error.value = null
-    offset.value = 0
     try {
-      const data = await apiFetch<FeatureListResponse>(
-        `/features?limit=${PAGE_SIZE}&offset=0`
-      )
-      features.value = data.features
-      votedIds.value = new Set(data.votedIds)
-      total.value = data.total
-      offset.value = 0
+      const data = await readData()
+      const userId = getUserId()
+      features.value = toFeatureList(data, userId)
     } catch (e) {
       error.value = (e as Error).message
     } finally {
@@ -72,35 +188,37 @@ export function useVotingApi(options?: { apiBaseUrl?: string; accessToken?: () =
     }
   }
 
-  async function loadMore(): Promise<void> {
-    if (!hasMore.value) return
-    const nextOffset = offset.value + PAGE_SIZE
-    error.value = null
-    try {
-      const data = await apiFetch<FeatureListResponse>(
-        `/features?limit=${PAGE_SIZE}&offset=${nextOffset}`
-      )
-      features.value = [...features.value, ...data.features]
-      // Merge in any new votedIds
-      data.votedIds.forEach((id) => votedIds.value.add(id))
-      total.value = data.total
-      offset.value = nextOffset
-    } catch (e) {
-      error.value = (e as Error).message
-    }
-  }
-
+  /**
+   * Create a new feature request.
+   */
   async function createFeature(title: string, description: string): Promise<Feature | null> {
     submitting.value = true
     error.value = null
     try {
-      const feature = await apiFetch<Feature>('/features', {
-        method: 'POST',
-        body: JSON.stringify({ title, description })
-      })
-      await loadFeatures()
+      const data = await readData()
+      const userId = getUserId()
+      const feature: Feature = {
+        id: generateId(),
+        title: title.replace(/<[^>]*>/g, '').trim().slice(0, 255),
+        description: (description.replace(/<[^>]*>/g, '').trim() || '').slice(0, 2000),
+        userId,
+        voteCount: 0,
+        createdAt: new Date().toISOString()
+      }
+      data.features.push(feature)
+      await writeData(data)
+      features.value = toFeatureList(data, userId)
       return feature
     } catch (e) {
+      if ((e as Error).message === 'CONFLICT') {
+        // Retry once on conflict
+        try {
+          return await createFeature(title, description)
+        } catch (e2) {
+          error.value = (e2 as Error).message
+          return null
+        }
+      }
       error.value = (e as Error).message
       return null
     } finally {
@@ -108,55 +226,93 @@ export function useVotingApi(options?: { apiBaseUrl?: string; accessToken?: () =
     }
   }
 
-  async function deleteFeature(id: number): Promise<boolean> {
+  /**
+   * Delete a feature (owner only, enforced client-side).
+   */
+  async function deleteFeature(id: string): Promise<boolean> {
     error.value = null
     try {
-      await apiFetch(`/features/${id}`, { method: 'DELETE' })
-      await loadFeatures()
+      const data = await readData()
+      const userId = getUserId()
+      const feature = data.features.find((f) => f.id === id)
+      if (!feature) {
+        error.value = 'Feature not found'
+        return false
+      }
+      if (feature.userId !== userId) {
+        error.value = 'You can only delete your own features'
+        return false
+      }
+      data.features = data.features.filter((f) => f.id !== id)
+      delete data.votes[id]
+      await writeData(data)
+      features.value = toFeatureList(data, userId)
       return true
     } catch (e) {
+      if ((e as Error).message === 'CONFLICT') {
+        try {
+          return await deleteFeature(id)
+        } catch (e2) {
+          error.value = (e2 as Error).message
+          return false
+        }
+      }
       error.value = (e as Error).message
       return false
     }
   }
 
-  async function toggleVote(featureId: number): Promise<VoteToggleResponse | null> {
+  /**
+   * Toggle vote on a feature.
+   */
+  async function toggleVote(featureId: string): Promise<boolean> {
     error.value = null
     try {
-      const result = await apiFetch<VoteToggleResponse>(`/features/${featureId}/vote`, {
-        method: 'POST'
-      })
+      const data = await readData()
+      const userId = getUserId()
 
-      // Update local state immediately (optimistic)
-      const feature = features.value.find((f) => f.id === featureId)
-      if (feature) {
-        feature.voteCount = result.voteCount
+      if (!data.votes[featureId]) {
+        data.votes[featureId] = []
       }
-      if (result.voted) {
-        votedIds.value.add(featureId)
+
+      const idx = data.votes[featureId].indexOf(userId)
+      if (idx >= 0) {
+        data.votes[featureId].splice(idx, 1)
       } else {
-        votedIds.value.delete(featureId)
+        data.votes[featureId].push(userId)
       }
 
-      return result
+      await writeData(data)
+      features.value = toFeatureList(data, userId)
+      return true
     } catch (e) {
+      if ((e as Error).message === 'CONFLICT') {
+        try {
+          return await toggleVote(featureId)
+        } catch (e2) {
+          error.value = (e2 as Error).message
+          return false
+        }
+      }
       error.value = (e as Error).message
-      return null
+      return false
     }
+  }
+
+  function dismissError() {
+    error.value = null
   }
 
   return {
     features,
-    votedIds,
     loading,
     submitting,
     error,
     total,
-    hasMore,
     loadFeatures,
-    loadMore,
     createFeature,
     deleteFeature,
-    toggleVote
+    toggleVote,
+    dismissError
   }
 }

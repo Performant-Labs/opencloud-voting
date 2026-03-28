@@ -1,5 +1,5 @@
 export interface Feature {
-  id: number
+  id: string
   title: string
   description: string
   userId: string
@@ -7,15 +7,11 @@ export interface Feature {
   createdAt: string
 }
 
-export interface VoteToggleResponse {
+export interface FeatureWithVoted extends Feature {
   voted: boolean
-  voteCount: number
 }
 
-export interface FeatureListResponse {
+export interface VotingData {
   features: Feature[]
-  votedIds: number[]
-  total: number
-  limit: number
-  offset: number
+  votes: Record<string, string[]> // featureId → array of userIds
 }

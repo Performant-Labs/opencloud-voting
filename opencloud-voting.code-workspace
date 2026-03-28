@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../pl-opencloud-server"
+		},
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../Projects"
+		}
+	],
+	"settings": {
+		"git.ignoreLimitWarning": true
+	}
+}

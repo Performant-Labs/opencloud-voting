@@ -2,8 +2,8 @@
 import { onMounted, ref } from 'vue'
 import { useVotingApi } from './composables/useVotingApi'
 
-// In production, useAuthStore provides the OIDC access token from OpenCloud Web.
-// In standalone dev mode, the import may fail — we catch and fall back to no token.
+// Import the auth store to get the OIDC access token.
+// The token is used for authenticated WebDAV requests.
 let getAccessToken: (() => string | undefined) | undefined
 try {
   const { useAuthStore } = await import('@opencloud-eu/web-pkg')
@@ -11,22 +11,19 @@ try {
   getAccessToken = () => (authStore as any).accessToken
 } catch {
   // Running outside OpenCloud Web (standalone dev) — no token available.
-  // The API sidecar will fall back to Basic Auth in non-production mode.
 }
 
 const {
   features,
-  votedIds,
   loading,
   submitting,
   error,
   total,
-  hasMore,
   loadFeatures,
-  loadMore,
   createFeature,
   deleteFeature,
-  toggleVote
+  toggleVote,
+  dismissError
 } = useVotingApi({ accessToken: getAccessToken })
 
 const newTitle = ref('')
@@ -50,17 +47,13 @@ async function handleSubmit() {
   }
 }
 
-async function handleDelete(id: number) {
+async function handleDelete(id: string) {
   if (!confirm('Delete this feature request?')) return
   await deleteFeature(id)
 }
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString()
-}
-
-function dismissError() {
-  error.value = null
 }
 
 onMounted(() => {
@@ -124,7 +117,7 @@ onMounted(() => {
             v-for="feature in features"
             :key="feature.id"
             class="fv-item"
-            :class="{ 'fv-voted': votedIds.has(feature.id) }"
+            :class="{ 'fv-voted': feature.voted }"
           >
             <div class="fv-vote-block">
               <button
@@ -156,13 +149,6 @@ onMounted(() => {
             </button>
           </li>
         </ul>
-
-        <!-- Load more pagination -->
-        <div v-if="hasMore" class="fv-load-more">
-          <button class="fv-btn-secondary" @click="loadMore">
-            Load more ({{ features.length }} of {{ total }})
-          </button>
-        </div>
       </template>
     </section>
   </div>
@@ -404,25 +390,5 @@ onMounted(() => {
 }
 .fv-delete-btn:hover {
   color: var(--oc-color-swatch-danger-default, #ef4444);
-}
-
-/* Load more */
-.fv-load-more {
-  text-align: center;
-  padding: 16px 0;
-}
-.fv-btn-secondary {
-  padding: 8px 20px;
-  border: 1px solid var(--oc-color-border, #d1d5db);
-  border-radius: 6px;
-  background: var(--oc-color-background-default, #fff);
-  color: var(--oc-color-text-default, #374151);
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-}
-.fv-btn-secondary:hover {
-  border-color: var(--oc-color-swatch-primary-default, #6366f1);
-  background: var(--oc-color-swatch-primary-muted, #eef2ff);
 }
 </style>
