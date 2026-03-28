@@ -2,6 +2,18 @@
 import { onMounted, ref } from 'vue'
 import { useVotingApi } from './composables/useVotingApi'
 
+// In production, useAuthStore provides the OIDC access token from OpenCloud Web.
+// In standalone dev mode, the import may fail — we catch and fall back to no token.
+let getAccessToken: (() => string | undefined) | undefined
+try {
+  const { useAuthStore } = await import('@opencloud-eu/web-pkg')
+  const authStore = useAuthStore()
+  getAccessToken = () => (authStore as any).accessToken
+} catch {
+  // Running outside OpenCloud Web (standalone dev) — no token available.
+  // The API sidecar will fall back to Basic Auth in non-production mode.
+}
+
 const {
   features,
   votedIds,
@@ -15,7 +27,7 @@ const {
   createFeature,
   deleteFeature,
   toggleVote
-} = useVotingApi()
+} = useVotingApi({ accessToken: getAccessToken })
 
 const newTitle = ref('')
 const newDescription = ref('')

@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 import { cors } from 'hono/cors'
 import { authMiddleware } from './middleware/auth.js'
+import { rateLimiter } from './middleware/rateLimit.js'
 import { features } from './routes/features.js'
 import { votes } from './routes/votes.js'
 
@@ -21,6 +22,10 @@ app.use(
 // Auth — all /features routes require a user identity
 app.use('/features/*', authMiddleware)
 app.use('/features', authMiddleware)
+
+// Rate limiting — 30 requests/min per user (applied after auth)
+app.use('/features/*', rateLimiter())
+app.use('/features', rateLimiter())
 
 // Mount routes at root level.
 // When deployed behind the OpenCloud proxy, the proxy routes

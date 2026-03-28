@@ -54,7 +54,7 @@ Three issues found by auditing against official OpenCloud documentation:
 3. **Redundant `web/manifest.json`** (fixed) — Removed. The build generates `dist/manifest.json`
    with the correct hashed filename; source file was misleading.
 
-## Phase 4: Authentication & Security
+## Phase 4: Authentication & Security ✅
 
 > **Architecture note (discovered in research):**
 > OpenCloud's **proxy service** is the auth gateway. It validates OIDC tokens
@@ -62,44 +62,30 @@ Three issues found by auditing against official OpenCloud documentation:
 > implement its own OIDC flow — instead, the proxy handles auth and passes
 > identity to the sidecar via headers.
 
-### 4a. Proxy routing — `proxy.yaml`
+### 4a. Proxy routing — `proxy.yaml` ✅
 
-- [ ] Create `config/proxy.yaml` with `additional_policies` entry:
-  ```yaml
-  additional_policies:
-    - name: default
-      routes:
-        - endpoint: /api/voting/
-          backend: http://voting-api:3456
-          unprotected: false          # proxy enforces auth
-          skip_x_access_token: false  # proxy forwards JWT
-  ```
-- [ ] Mount `proxy.yaml` into the OpenCloud container via docker-compose
+- [x] Created `config/proxy.yaml` with `additional_policies` route
+- [x] Mounted `proxy.yaml` into OpenCloud container via docker-compose.voting.yml
 
-### 4b. API auth middleware — decode `X-Access-Token`
+### 4b. API auth middleware — decode `X-Access-Token` ✅
 
-The proxy sets an `X-Access-Token` header containing the user's JWT on every
-authenticated request forwarded to the backend. The sidecar must:
+- [x] JWT decoding from `X-Access-Token` header (using `jose` library)
+- [x] JWT decoding from `Authorization: Bearer` header (web extension)
+- [x] Extract user identity from `preferred_username` or `sub` claims
+- [x] Optional JWKS signature validation when `OIDC_ISSUER` is set
+- [x] Basic Auth fallback only when `NODE_ENV !== 'production'`
+- [x] Removed invented `X-Opencloud-User` header
 
-- [ ] Decode the JWT from the `X-Access-Token` header (using `jose` or `jsonwebtoken`)
-- [ ] Extract user identity from JWT claims (`preferred_username` or `sub`)
-- [ ] Validate the JWT signature against the OpenCloud OIDC JWKS endpoint
-- [ ] Fall back to Basic Auth for local dev/testing only (behind `NODE_ENV !== 'production'`)
-- [ ] Remove the invented `X-Opencloud-User` header from the current middleware
+### 4c. Web extension — token forwarding ✅
 
-### 4c. Web extension — token forwarding
+- [x] `App.vue` imports `useAuthStore` from `@opencloud-eu/web-pkg`
+- [x] Passes access token callback to `useVotingApi` composable
+- [x] Graceful fallback when running outside OpenCloud Web (standalone dev)
 
-The Vue web extension runs inside OpenCloud Web, which manages the user session.
-When the extension makes `fetch()` calls to the API:
+### 4d. Input sanitization & rate limiting ✅
 
-- [ ] Ensure `credentials: 'include'` is set (already done)
-- [ ] Verify the proxy transparently forwards the auth context to the sidecar
-- [ ] If needed, attach the Bearer token from `@opencloud-eu/web-pkg` auth composable
-
-### 4d. Input sanitization & rate limiting
-
-- [ ] Sanitize feature title/description (strip HTML, enforce max length)
-- [ ] Add basic rate limiting via Hono middleware (e.g., 30 requests/min per user)
+- [x] HTML stripping middleware (`sanitize.ts`) — strips tags, enforces max lengths
+- [x] Rate limiter (`rateLimit.ts`) — 30 req/min per user with `X-RateLimit-*` headers
 
 ## Phase 5: Production Deployment
 
