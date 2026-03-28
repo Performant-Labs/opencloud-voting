@@ -1,0 +1,153 @@
+.fv-container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 16px;
+}
+
+.fv-header {
+    margin-bottom: 32px;
+}
+.fv-header h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+.fv-subtitle {
+    color: var(--color-text-lighter);
+}
+
+/* Submit form */
+.fv-submit-form {
+    background: var(--color-main-background-blur, #fff);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-large, 8px);
+    padding: 20px;
+    margin-bottom: 32px;
+}
+.fv-submit-form h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+.fv-submit-form input,
+.fv-submit-form textarea {
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--border-radius);
+    background: var(--color-main-background);
+    color: var(--color-main-text);
+    font-size: .95rem;
+    box-sizing: border-box;
+}
+.fv-submit-form textarea { resize: vertical; }
+.fv-submit-form .button.primary {
+    margin-top: 4px;
+}
+.fv-error {
+    color: var(--color-error);
+    margin-top: 6px;
+    font-size: .9rem;
+}
+
+/* List section */
+.fv-list-section h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 14px;
+}
+.fv-count {
+    color: var(--color-text-lighter);
+    font-weight: 400;
+    font-size: .95rem;
+}
+.fv-loading, .fv-empty {
+    color: var(--color-text-lighter);
+    padding: 16px 0;
+}
+
+/* Feature list */
+.fv-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.fv-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    background: var(--color-main-background-blur, #fff);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-large, 8px);
+    padding: 14px 16px;
+    transition: border-color .15s;
+}
+.fv-item:hover { border-color: var(--color-primary-element); }
+
+/* Vote block */
+.fv-vote-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 40px;
+    gap: 2px;
+}
+.fv-vote-btn {
+    background: none;
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--border-radius);
+    padding: 4px 8px;
+    cursor: pointer;
+    color: var(--color-text-lighter);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s, color .15s;
+}
+.fv-vote-btn svg { fill: currentColor; }
+.fv-vote-btn:hover {
+    background: var(--color-primary-element-light);
+    color: var(--color-primary-element);
+    border-color: var(--color-primary-element);
+}
+.fv-voted .fv-vote-btn {
+    background: var(--color-primary-element);
+    color: #fff;
+    border-color: var(--color-primary-element);
+}
+.fv-vote-count {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--color-main-text);
+}
+
+/* Content */
+.fv-content { flex: 1; min-width: 0; }
+.fv-item-title { font-size: 1rem; display: block; margin-bottom: 4px; }
+.fv-item-desc {
+    color: var(--color-text-lighter);
+    font-size: .9rem;
+    margin: 0 0 6px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.fv-item-meta { color: var(--color-text-maxcontrast); font-size: .8rem; }
+
+/* Delete button */
+.fv-delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-lighter);
+    font-size: 1rem;
+    padding: 4px;
+    border-radius: var(--border-radius);
+    line-height: 1;
+    flex-shrink: 0;
+    align-self: flex-start;
+}
+.fv-delete-btn:hover { color: var(--color-error); }
