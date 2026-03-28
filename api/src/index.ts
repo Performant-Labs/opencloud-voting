@@ -9,21 +9,25 @@ const app = new Hono()
 
 // CORS — allow requests from OpenCloud Web
 app.use(
-  '/api/*',
+  '/*',
   cors({
     origin: (origin) => origin || '*',
     allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization', 'X-Opencloud-User'],
+    allowHeaders: ['Content-Type', 'Authorization', 'X-Access-Token'],
     credentials: true,
   })
 )
 
-// Auth — all API routes require a user identity
-app.use('/api/*', authMiddleware)
+// Auth — all /features routes require a user identity
+app.use('/features/*', authMiddleware)
+app.use('/features', authMiddleware)
 
-// Mount routes
-app.route('/api/features', features)
-app.route('/api/features', votes)
+// Mount routes at root level.
+// When deployed behind the OpenCloud proxy, the proxy routes
+// /api/voting/features → http://voting-api:3456/features
+// (the proxy strips the /api/voting prefix automatically).
+app.route('/features', features)
+app.route('/features', votes)
 
 // Health check (no auth required)
 app.get('/health', (c) => c.json({ status: 'ok' }))

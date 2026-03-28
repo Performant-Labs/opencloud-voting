@@ -13,7 +13,7 @@ function createTestApp(): Hono<any> {
     c.set('userId', 'test-user')
     await next()
   })
-  app.route('/api/features', features as any)
+  app.route('/features', features as any)
   return app
 }
 
@@ -33,7 +33,7 @@ describe('Features API', () => {
   })
 
   it('should list features (empty)', async () => {
-    const res = await app.request('/api/features')
+    const res = await app.request('/features')
     expect(res.status).toBe(200)
     const data = await res.json()
     expect(data.features).toEqual([])
@@ -41,7 +41,7 @@ describe('Features API', () => {
   })
 
   it('should create a feature', async () => {
-    const res = await app.request('/api/features', {
+    const res = await app.request('/features', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: 'Dark mode', description: 'Add dark theme' }),
@@ -55,7 +55,7 @@ describe('Features API', () => {
   })
 
   it('should reject empty title', async () => {
-    const res = await app.request('/api/features', {
+    const res = await app.request('/features', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: '   ' }),
@@ -65,36 +65,36 @@ describe('Features API', () => {
 
   it('should delete own feature', async () => {
     // Create first
-    await app.request('/api/features', {
+    await app.request('/features', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: 'To delete' }),
     })
 
     // List to get ID
-    const listRes = await app.request('/api/features')
+    const listRes = await app.request('/features')
     const listData = await listRes.json()
     const id = listData.features[0].id
 
     // Delete
-    const delRes = await app.request(`/api/features/${id}`, { method: 'DELETE' })
+    const delRes = await app.request(`/features/${id}`, { method: 'DELETE' })
     expect(delRes.status).toBe(200)
 
     // Verify gone
-    const afterRes = await app.request('/api/features')
+    const afterRes = await app.request('/features')
     const afterData = await afterRes.json()
     expect(afterData.features).toHaveLength(0)
   })
 
   it('should reject deletion by non-owner', async () => {
     // Create as test-user
-    await app.request('/api/features', {
+    await app.request('/features', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: 'Protected' }),
     })
 
-    const listRes = await app.request('/api/features')
+    const listRes = await app.request('/features')
     const listData = await listRes.json()
     const id = listData.features[0].id
 
@@ -104,16 +104,16 @@ describe('Features API', () => {
       c.set('userId', 'other-user')
       await next()
     })
-    otherApp.route('/api/features', features as any)
+    otherApp.route('/features', features as any)
 
-    const delRes = await otherApp.request(`/api/features/${id}`, { method: 'DELETE' })
+    const delRes = await otherApp.request(`/features/${id}`, { method: 'DELETE' })
     expect(delRes.status).toBe(403)
   })
 
   it('should paginate results', async () => {
     // Create 3 features
     for (const title of ['Feature A', 'Feature B', 'Feature C']) {
-      await app.request('/api/features', {
+      await app.request('/features', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title }),
@@ -121,7 +121,7 @@ describe('Features API', () => {
     }
 
     // Fetch page 1 (limit=2)
-    const page1Res = await app.request('/api/features?limit=2&offset=0')
+    const page1Res = await app.request('/features?limit=2&offset=0')
     const page1 = await page1Res.json()
     expect(page1.features).toHaveLength(2)
     expect(page1.total).toBe(3)
@@ -129,14 +129,14 @@ describe('Features API', () => {
     expect(page1.offset).toBe(0)
 
     // Fetch page 2
-    const page2Res = await app.request('/api/features?limit=2&offset=2')
+    const page2Res = await app.request('/features?limit=2&offset=2')
     const page2 = await page2Res.json()
     expect(page2.features).toHaveLength(1)
     expect(page2.total).toBe(3)
   })
 
   it('should cap limit at 100', async () => {
-    const res = await app.request('/api/features?limit=999')
+    const res = await app.request('/features?limit=999')
     const data = await res.json()
     expect(data.limit).toBe(100)
   })

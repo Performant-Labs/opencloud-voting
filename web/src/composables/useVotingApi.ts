@@ -6,13 +6,18 @@ const PAGE_SIZE = 50
 /**
  * Composable for the voting API.
  *
- * The API base URL is resolved at runtime:
- * 1. From the OpenCloud app config (`applicationConfig.apiUrl`)
- * 2. Fall back to same-origin `/api` path (reverse proxy)
- * 3. Fall back to localhost:3456 for standalone dev
+ * URL resolution:
+ * When deployed behind the OpenCloud proxy, the API is accessed at
+ * /api/voting/features (the proxy routes /api/voting/* → voting-api:3456/*).
+ *
+ * Token handling:
+ * OpenCloud Web manages the OIDC session. The access token must be passed
+ * to this composable so it can attach it as a Bearer header. The proxy
+ * then forwards it as X-Access-Token to the sidecar.
  */
-export function useVotingApi(apiBaseUrl?: string) {
-  const baseUrl = apiBaseUrl || '/api'
+export function useVotingApi(options?: { apiBaseUrl?: string; accessToken?: () => string | undefined }) {
+  const baseUrl = options?.apiBaseUrl || '/api/voting'
+  const getToken = options?.accessToken
   const features = ref<Feature[]>([])
   const votedIds = ref<Set<number>>(new Set())
   const loading = ref(false)
@@ -23,11 +28,19 @@ export function useVotingApi(apiBaseUrl?: string) {
   const hasMore = computed(() => offset.value + features.value.length < total.value)
 
   async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(opts.headers as Record<string, string>)
+    }
+
+    // Attach Bearer token if available (provided by OpenCloud Web session)
+    const token = getToken?.()
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
     const res = await fetch(`${baseUrl}${path}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...opts.headers
-      },
+      headers,
       credentials: 'include',
       ...opts
     })

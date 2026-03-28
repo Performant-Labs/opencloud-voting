@@ -13,13 +13,13 @@ function createTestApp(userId: string = 'test-user'): Hono<any> {
     c.set('userId', userId)
     await next()
   })
-  app.route('/api/features', features as any)
-  app.route('/api/features', votes as any)
+  app.route('/features', features as any)
+  app.route('/features', votes as any)
   return app
 }
 
 async function createFeature(app: Hono<any>, title: string): Promise<number> {
-  const res = await app.request('/api/features', {
+  const res = await app.request('/features', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title }),
@@ -45,7 +45,7 @@ describe('Votes API', () => {
   it('should toggle vote on', async () => {
     const featureId = await createFeature(app, 'Vote me')
 
-    const res = await app.request(`/api/features/${featureId}/vote`, { method: 'POST' })
+    const res = await app.request(`/features/${featureId}/vote`, { method: 'POST' })
     expect(res.status).toBe(200)
     const data = await res.json()
     expect(data.voted).toBe(true)
@@ -56,10 +56,10 @@ describe('Votes API', () => {
     const featureId = await createFeature(app, 'Toggle me')
 
     // Vote on
-    await app.request(`/api/features/${featureId}/vote`, { method: 'POST' })
+    await app.request(`/features/${featureId}/vote`, { method: 'POST' })
 
     // Vote off
-    const res = await app.request(`/api/features/${featureId}/vote`, { method: 'POST' })
+    const res = await app.request(`/features/${featureId}/vote`, { method: 'POST' })
     const data = await res.json()
     expect(data.voted).toBe(false)
     expect(data.voteCount).toBe(0)
@@ -68,15 +68,15 @@ describe('Votes API', () => {
   it('should track voted IDs in feature list', async () => {
     const featureId = await createFeature(app, 'Tracked')
 
-    await app.request(`/api/features/${featureId}/vote`, { method: 'POST' })
+    await app.request(`/features/${featureId}/vote`, { method: 'POST' })
 
-    const listRes = await app.request('/api/features')
+    const listRes = await app.request('/features')
     const listData = await listRes.json()
     expect(listData.votedIds).toContain(featureId)
   })
 
   it('should return 404 for non-existent feature', async () => {
-    const res = await app.request('/api/features/9999/vote', { method: 'POST' })
+    const res = await app.request('/features/9999/vote', { method: 'POST' })
     expect(res.status).toBe(404)
   })
 
@@ -84,10 +84,10 @@ describe('Votes API', () => {
     const featureId = await createFeature(app, 'Cascade test')
 
     // Vote on it
-    await app.request(`/api/features/${featureId}/vote`, { method: 'POST' })
+    await app.request(`/features/${featureId}/vote`, { method: 'POST' })
 
     // Delete the feature
-    await app.request(`/api/features/${featureId}`, { method: 'DELETE' })
+    await app.request(`/features/${featureId}`, { method: 'DELETE' })
 
     // Verify votes table is clean
     const db = getDb()

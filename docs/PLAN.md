@@ -42,6 +42,18 @@ A feature voting board built as an OpenCloud Web extension with a SQLite-backed 
 - [x] Error handling: dismissible error banner, submitting state, disabled inputs, focus styles
 - [x] Pagination: API supports limit/offset with total count, "Load More" button in UI
 
+### Post-Phase 3 Audit (fixes applied)
+
+Three issues found by auditing against official OpenCloud documentation:
+
+1. **API URL mismatch** (fixed) — Routes now mount at `/features` instead of `/api/features`.
+   The proxy maps `/api/voting/*` → `http://voting-api:3456/*`, stripping the prefix.
+2. **`fetch()` won't carry auth token** (fixed) — Composable now accepts an `accessToken`
+   callback and attaches it as `Authorization: Bearer <token>`. Raw `credentials: 'include'`
+   alone doesn't work with OIDC token-based auth.
+3. **Redundant `web/manifest.json`** (fixed) — Removed. The build generates `dist/manifest.json`
+   with the correct hashed filename; source file was misleading.
+
 ## Phase 4: Authentication & Security
 
 > **Architecture note (discovered in research):**
