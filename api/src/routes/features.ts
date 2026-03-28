@@ -34,17 +34,17 @@ features.get('/', (c) => {
   return c.json({ features: allFeatures, votedIds, total, limit, offset })
 })
 
-/** POST /api/features — Create a new feature */
+/** POST /features — Create a new feature */
 features.post('/', async (c) => {
   const userId = c.get('userId') as string
   const body = await c.req.json<{ title?: string; description?: string }>()
 
-  const title = body.title?.trim()
+  // Sanitize: strip HTML tags, enforce max lengths
+  const title = body.title?.replace(/<[^>]*>/g, '').trim().slice(0, 255)
   if (!title) {
     return c.json({ error: 'Title is required' }, 400)
   }
-
-  const description = body.description?.trim() || ''
+  const description = (body.description?.replace(/<[^>]*>/g, '').trim() || '').slice(0, 2000)
   const db = getDb()
 
   const result = db
