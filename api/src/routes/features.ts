@@ -1,19 +1,29 @@
 import { Hono } from 'hono'
 import { getDb } from '../db.js'
 
-const features = new Hono()
+type Env = { Variables: { userId: string } }
 
-/** GET /api/features — List all features + current user's voted IDs */
+const features = new Hono<Env>()
+
+/** GET /api/features — List features with pagination + current user's voted IDs */
 features.get('/', (c) => {
   const userId = c.get('userId') as string
   const db = getDb()
 
+  const limit = Math.min(Number(c.req.query('limit')) || 50, 100)
+  const offset = Number(c.req.query('offset')) || 0
+
+  const { total } = db
+    .prepare('SELECT COUNT(*) as total FROM features')
+    .get() as { total: number }
+
   const allFeatures = db
     .prepare(
       `SELECT id, title, description, user_id as userId, vote_count as voteCount, created_at as createdAt
-       FROM features ORDER BY vote_count DESC, created_at DESC`
+       FROM features ORDER BY vote_count DESC, created_at DESC
+       LIMIT ? OFFSET ?`
     )
-    .all()
+    .all(limit, offset)
 
   const votedRows = db
     .prepare('SELECT feature_id FROM votes WHERE user_id = ?')
@@ -21,7 +31,7 @@ features.get('/', (c) => {
 
   const votedIds = votedRows.map((r) => r.feature_id)
 
-  return c.json({ features: allFeatures, votedIds })
+  return c.json({ features: allFeatures, votedIds, total, limit, offset })
 })
 
 /** POST /api/features — Create a new feature */

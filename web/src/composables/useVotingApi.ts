@@ -1,5 +1,7 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { Feature, FeatureListResponse, VoteToggleResponse } from '../types'
+
+const PAGE_SIZE = 50
 
 /**
  * Composable for the voting API.
@@ -14,7 +16,11 @@ export function useVotingApi(apiBaseUrl?: string) {
   const features = ref<Feature[]>([])
   const votedIds = ref<Set<number>>(new Set())
   const loading = ref(false)
+  const submitting = ref(false)
   const error = ref<string | null>(null)
+  const total = ref(0)
+  const offset = ref(0)
+  const hasMore = computed(() => offset.value + features.value.length < total.value)
 
   async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
     const res = await fetch(`${baseUrl}${path}`, {
@@ -37,10 +43,15 @@ export function useVotingApi(apiBaseUrl?: string) {
   async function loadFeatures(): Promise<void> {
     loading.value = true
     error.value = null
+    offset.value = 0
     try {
-      const data = await apiFetch<FeatureListResponse>('/features')
+      const data = await apiFetch<FeatureListResponse>(
+        `/features?limit=${PAGE_SIZE}&offset=0`
+      )
       features.value = data.features
       votedIds.value = new Set(data.votedIds)
+      total.value = data.total
+      offset.value = 0
     } catch (e) {
       error.value = (e as Error).message
     } finally {
@@ -48,7 +59,26 @@ export function useVotingApi(apiBaseUrl?: string) {
     }
   }
 
+  async function loadMore(): Promise<void> {
+    if (!hasMore.value) return
+    const nextOffset = offset.value + PAGE_SIZE
+    error.value = null
+    try {
+      const data = await apiFetch<FeatureListResponse>(
+        `/features?limit=${PAGE_SIZE}&offset=${nextOffset}`
+      )
+      features.value = [...features.value, ...data.features]
+      // Merge in any new votedIds
+      data.votedIds.forEach((id) => votedIds.value.add(id))
+      total.value = data.total
+      offset.value = nextOffset
+    } catch (e) {
+      error.value = (e as Error).message
+    }
+  }
+
   async function createFeature(title: string, description: string): Promise<Feature | null> {
+    submitting.value = true
     error.value = null
     try {
       const feature = await apiFetch<Feature>('/features', {
@@ -60,6 +90,8 @@ export function useVotingApi(apiBaseUrl?: string) {
     } catch (e) {
       error.value = (e as Error).message
       return null
+    } finally {
+      submitting.value = false
     }
   }
 
@@ -82,7 +114,7 @@ export function useVotingApi(apiBaseUrl?: string) {
         method: 'POST'
       })
 
-      // Update local state immediately
+      // Update local state immediately (optimistic)
       const feature = features.value.find((f) => f.id === featureId)
       if (feature) {
         feature.voteCount = result.voteCount
@@ -104,8 +136,12 @@ export function useVotingApi(apiBaseUrl?: string) {
     features,
     votedIds,
     loading,
+    submitting,
     error,
+    total,
+    hasMore,
     loadFeatures,
+    loadMore,
     createFeature,
     deleteFeature,
     toggleVote

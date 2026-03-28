@@ -15,4 +15,7 @@ export interface VoteToggleResponse {
 export interface FeatureListResponse {
   features: Feature[]
   votedIds: number[]
+  total: number
+  limit: number
+  offset: number
 }

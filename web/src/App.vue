@@ -2,8 +2,20 @@
 import { onMounted, ref } from 'vue'
 import { useVotingApi } from './composables/useVotingApi'
 
-const { features, votedIds, loading, error, loadFeatures, createFeature, deleteFeature, toggleVote } =
-  useVotingApi()
+const {
+  features,
+  votedIds,
+  loading,
+  submitting,
+  error,
+  total,
+  hasMore,
+  loadFeatures,
+  loadMore,
+  createFeature,
+  deleteFeature,
+  toggleVote
+} = useVotingApi()
 
 const newTitle = ref('')
 const newDescription = ref('')
@@ -35,6 +47,10 @@ function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString()
 }
 
+function dismissError() {
+  error.value = null
+}
+
 onMounted(() => {
   loadFeatures()
 })
@@ -47,6 +63,12 @@ onMounted(() => {
       <p class="fv-subtitle">Submit ideas and vote for the features you want most.</p>
     </header>
 
+    <!-- Global error banner -->
+    <div v-if="error && !formError" class="fv-error-banner" role="alert">
+      <span>{{ error }}</span>
+      <button class="fv-error-dismiss" @click="dismissError" title="Dismiss">&#x2715;</button>
+    </div>
+
     <section class="fv-submit-form">
       <h2>Suggest a Feature</h2>
       <form @submit.prevent="handleSubmit">
@@ -56,14 +78,18 @@ onMounted(() => {
           placeholder="Feature title (required)"
           maxlength="255"
           class="fv-input"
+          :disabled="submitting"
         />
         <textarea
           v-model="newDescription"
           placeholder="Describe the feature (optional)"
           rows="3"
           class="fv-textarea"
+          :disabled="submitting"
         />
-        <button type="submit" class="fv-btn-primary">Submit</button>
+        <button type="submit" class="fv-btn-primary" :disabled="submitting">
+          {{ submitting ? 'Submitting…' : 'Submit' }}
+        </button>
       </form>
       <p v-if="formError" class="fv-error">{{ formError }}</p>
     </section>
@@ -71,7 +97,7 @@ onMounted(() => {
     <section class="fv-list-section">
       <h2>
         Feature Requests
-        <span v-if="features.length" class="fv-count">({{ features.length }})</span>
+        <span v-if="total" class="fv-count">({{ total }})</span>
       </h2>
 
       <p v-if="loading" class="fv-loading">Loading…</p>
@@ -80,43 +106,52 @@ onMounted(() => {
         No feature requests yet. Be the first!
       </p>
 
-      <ul v-else class="fv-list">
-        <li
-          v-for="feature in features"
-          :key="feature.id"
-          class="fv-item"
-          :class="{ 'fv-voted': votedIds.has(feature.id) }"
-        >
-          <div class="fv-vote-block">
-            <button
-              class="fv-vote-btn"
-              title="Vote"
-              @click="toggleVote(feature.id)"
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18">
-                <path d="M12 4l8 8H4z" />
-              </svg>
-            </button>
-            <span class="fv-vote-count">{{ feature.voteCount }}</span>
-          </div>
-
-          <div class="fv-content">
-            <strong class="fv-item-title">{{ feature.title }}</strong>
-            <p v-if="feature.description" class="fv-item-desc">{{ feature.description }}</p>
-            <small class="fv-item-meta">
-              {{ feature.userId }} · {{ formatDate(feature.createdAt) }}
-            </small>
-          </div>
-
-          <button
-            class="fv-delete-btn"
-            title="Delete"
-            @click="handleDelete(feature.id)"
+      <template v-else>
+        <ul class="fv-list">
+          <li
+            v-for="feature in features"
+            :key="feature.id"
+            class="fv-item"
+            :class="{ 'fv-voted': votedIds.has(feature.id) }"
           >
-            &#x2715;
+            <div class="fv-vote-block">
+              <button
+                class="fv-vote-btn"
+                title="Vote"
+                @click="toggleVote(feature.id)"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18">
+                  <path d="M12 4l8 8H4z" />
+                </svg>
+              </button>
+              <span class="fv-vote-count">{{ feature.voteCount }}</span>
+            </div>
+
+            <div class="fv-content">
+              <strong class="fv-item-title">{{ feature.title }}</strong>
+              <p v-if="feature.description" class="fv-item-desc">{{ feature.description }}</p>
+              <small class="fv-item-meta">
+                {{ feature.userId }} · {{ formatDate(feature.createdAt) }}
+              </small>
+            </div>
+
+            <button
+              class="fv-delete-btn"
+              title="Delete"
+              @click="handleDelete(feature.id)"
+            >
+              &#x2715;
+            </button>
+          </li>
+        </ul>
+
+        <!-- Load more pagination -->
+        <div v-if="hasMore" class="fv-load-more">
+          <button class="fv-btn-secondary" @click="loadMore">
+            Load more ({{ features.length }} of {{ total }})
           </button>
-        </li>
-      </ul>
+        </div>
+      </template>
     </section>
   </div>
 </template>
@@ -138,6 +173,36 @@ onMounted(() => {
 }
 .fv-subtitle {
   color: var(--oc-color-text-muted, #6b7280);
+}
+
+/* Error banner */
+.fv-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  background: var(--oc-color-swatch-danger-muted, #fef2f2);
+  border: 1px solid var(--oc-color-swatch-danger-default, #ef4444);
+  border-radius: 8px;
+  color: var(--oc-color-swatch-danger-default, #dc2626);
+  font-size: 0.9rem;
+}
+.fv-error-dismiss {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font-size: 1rem;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.fv-error-dismiss:hover {
+  background: var(--oc-color-swatch-danger-default, #ef4444);
+  color: #fff;
 }
 
 /* Submit form */
@@ -164,6 +229,17 @@ onMounted(() => {
   color: var(--oc-color-text-default, #111827);
   font-size: 0.95rem;
   box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+.fv-input:focus,
+.fv-textarea:focus {
+  outline: none;
+  border-color: var(--oc-color-swatch-primary-default, #6366f1);
+}
+.fv-input:disabled,
+.fv-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .fv-textarea {
   resize: vertical;
@@ -177,10 +253,14 @@ onMounted(() => {
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, opacity 0.15s;
 }
-.fv-btn-primary:hover {
+.fv-btn-primary:hover:not(:disabled) {
   background: var(--oc-color-swatch-primary-hover, #4f46e5);
+}
+.fv-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .fv-error {
   color: var(--oc-color-swatch-danger-default, #ef4444);
@@ -246,7 +326,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
 }
 .fv-vote-btn svg {
   fill: currentColor;
@@ -255,6 +335,9 @@ onMounted(() => {
   background: var(--oc-color-swatch-primary-muted, #eef2ff);
   color: var(--oc-color-swatch-primary-default, #6366f1);
   border-color: var(--oc-color-swatch-primary-default, #6366f1);
+}
+.fv-vote-btn:active {
+  transform: scale(0.92);
 }
 .fv-voted .fv-vote-btn {
   background: var(--oc-color-swatch-primary-default, #6366f1);
@@ -301,8 +384,33 @@ onMounted(() => {
   line-height: 1;
   flex-shrink: 0;
   align-self: flex-start;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.fv-item:hover .fv-delete-btn {
+  opacity: 1;
 }
 .fv-delete-btn:hover {
   color: var(--oc-color-swatch-danger-default, #ef4444);
+}
+
+/* Load more */
+.fv-load-more {
+  text-align: center;
+  padding: 16px 0;
+}
+.fv-btn-secondary {
+  padding: 8px 20px;
+  border: 1px solid var(--oc-color-border, #d1d5db);
+  border-radius: 6px;
+  background: var(--oc-color-background-default, #fff);
+  color: var(--oc-color-text-default, #374151);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.fv-btn-secondary:hover {
+  border-color: var(--oc-color-swatch-primary-default, #6366f1);
+  background: var(--oc-color-swatch-primary-muted, #eef2ff);
 }
 </style>

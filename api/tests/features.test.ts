@@ -2,26 +2,23 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { Hono } from 'hono'
 import { getDb, closeDb } from '../src/db.js'
 import { features } from '../src/routes/features.js'
-import Database from 'better-sqlite3'
-import fs from 'node:fs'
-import path from 'node:path'
 
-// Use an in-memory test database
-const TEST_DB_PATH = path.join(import.meta.dirname || '.', 'test-features.db')
+type Env = { Variables: { userId: string } }
 
-function createTestApp() {
-  const app = new Hono()
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function createTestApp(): Hono<any> {
+  const app = new Hono<Env>()
   // Mock auth by setting userId directly
   app.use('/*', async (c, next) => {
     c.set('userId', 'test-user')
     await next()
   })
-  app.route('/api/features', features)
+  app.route('/api/features', features as any)
   return app
 }
 
 describe('Features API', () => {
-  let app: Hono
+  let app: Hono<any>
 
   beforeEach(() => {
     process.env.DB_PATH = ':memory:'
@@ -102,14 +99,45 @@ describe('Features API', () => {
     const id = listData.features[0].id
 
     // Try to delete as different user
-    const otherApp = new Hono()
+    const otherApp = new Hono<Env>()
     otherApp.use('/*', async (c, next) => {
       c.set('userId', 'other-user')
       await next()
     })
-    otherApp.route('/api/features', features)
+    otherApp.route('/api/features', features as any)
 
     const delRes = await otherApp.request(`/api/features/${id}`, { method: 'DELETE' })
     expect(delRes.status).toBe(403)
+  })
+
+  it('should paginate results', async () => {
+    // Create 3 features
+    for (const title of ['Feature A', 'Feature B', 'Feature C']) {
+      await app.request('/api/features', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      })
+    }
+
+    // Fetch page 1 (limit=2)
+    const page1Res = await app.request('/api/features?limit=2&offset=0')
+    const page1 = await page1Res.json()
+    expect(page1.features).toHaveLength(2)
+    expect(page1.total).toBe(3)
+    expect(page1.limit).toBe(2)
+    expect(page1.offset).toBe(0)
+
+    // Fetch page 2
+    const page2Res = await app.request('/api/features?limit=2&offset=2')
+    const page2 = await page2Res.json()
+    expect(page2.features).toHaveLength(1)
+    expect(page2.total).toBe(3)
+  })
+
+  it('should cap limit at 100', async () => {
+    const res = await app.request('/api/features?limit=999')
+    const data = await res.json()
+    expect(data.limit).toBe(100)
   })
 })

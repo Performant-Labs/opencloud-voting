@@ -4,18 +4,21 @@ import { getDb, closeDb } from '../src/db.js'
 import { features } from '../src/routes/features.js'
 import { votes } from '../src/routes/votes.js'
 
-function createTestApp(userId: string = 'test-user') {
-  const app = new Hono()
+type Env = { Variables: { userId: string } }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function createTestApp(userId: string = 'test-user'): Hono<any> {
+  const app = new Hono<Env>()
   app.use('/*', async (c, next) => {
     c.set('userId', userId)
     await next()
   })
-  app.route('/api/features', features)
-  app.route('/api/features', votes)
+  app.route('/api/features', features as any)
+  app.route('/api/features', votes as any)
   return app
 }
 
-async function createFeature(app: Hono, title: string): Promise<number> {
+async function createFeature(app: Hono<any>, title: string): Promise<number> {
   const res = await app.request('/api/features', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -26,7 +29,7 @@ async function createFeature(app: Hono, title: string): Promise<number> {
 }
 
 describe('Votes API', () => {
-  let app: Hono
+  let app: Hono<any>
 
   beforeEach(() => {
     process.env.DB_PATH = ':memory:'

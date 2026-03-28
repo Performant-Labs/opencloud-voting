@@ -1,7 +1,9 @@
 import { Hono } from 'hono'
 import { getDb } from '../db.js'
 
-const votes = new Hono()
+type Env = { Variables: { userId: string } }
+
+const votes = new Hono<Env>()
 
 /**
  * POST /api/features/:id/vote — Toggle vote on a feature.
