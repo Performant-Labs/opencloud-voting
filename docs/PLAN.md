@@ -45,8 +45,9 @@ Before writing datastore logic or user identity extraction routines in Go, we mu
   - **[SCALING]**: If utilizing the SQLite fallback, it will strictly enforce `PRAGMA journal_mode=WAL` (Write-Ahead Logging) and `PRAGMA busy_timeout=5000`. We explicitly reject building bespoke migration frameworks; the schema is either deployed fresh or managed entirely by the upstream enterprise DB environment.
 - **[x] 350 - [STRUCTURED LOGGING]**: Configure standard Go 1.21+ `log/slog` to format all application outputs as structured JSON. This strictly adheres to OpenCloud ELK ingestion standards.
 - **[x] 360 - [GRACEFUL SHUTDOWN]**: Instruct the `net/http` server to catch `SIGTERM` OS interrupts, forcing a clean drain of active HTTP connections and SQLite WAL queues before container death, preventing data loss during pod scale-down.
+- **[ ] 370 - [TEST] `api/main_test.go`**: Unit tests for Phase 300 deliverables: verify SQLite WAL mode activation, schema migration idempotency (`CREATE TABLE IF NOT EXISTS` runs twice without error), and `/healthz` + `/readyz` probe responses using `net/http/httptest`.
 
-**[VERIFY SUBMITTABILITY POST-PHASE]**: We must pause and audit the `docker-compose.yml` and `proxy.yaml` to ensure no custom routing bypasses were created, and verify that `log/slog` is outputting valid JSON.
+**[VERIFY SUBMITTABILITY POST-PHASE]**: We must pause and audit the `docker-compose.yml` and `proxy.yaml` to ensure no custom routing bypasses were created, and verify that `zerolog` is outputting valid JSON.
 
 ---
 
@@ -57,6 +58,7 @@ Before writing datastore logic or user identity extraction routines in Go, we mu
 - **[ ] 410 - [NEW] `api/models.go`**: Define the Go structs for the voting endpoints, along with the SQLite schema creation utilizing **prefixed table names** to avoid multi-extension collision. *Must be rigorously compliant with the Phase 200 Privacy bindings*.
 - **[ ] 420 - [NEW] `api/middleware/auth.go`**: We will strictly **hook into OpenCloud's native authentication flow**. Instead of hardcoding JWT secrets, this Go middleware will dynamically fetch and validate the Bearer tokens against OpenCloud's specific oCIS `.well-known/openid-configuration` and `JWKs` (JSON Web Key Set) endpoints[^3]. 
 - **[ ] 430 - [NEW] `api/middleware/rate_limit.go`**: We will implement a standard library-compatible Token Bucket or memory-mapped middleware to apply our endpoint limits natively onto the Go 1.22 `ServeMux` without relying on `go-chi/httprate`.
+- **[ ] 440 - [TEST] `api/middleware/auth_test.go`**: Verify that missing, expired, or cryptographically invalid OpenCloud JWTs are rejected. Verify rate limiter triggers HTTP 429 after threshold.
 
 [^3]: **Why this Auth Pattern?** OpenCloud's gateway proxy natively handles initial OIDC flows. When routing traffic to sidecar extensions, it simply forwards the authenticated user's JWT. By verifying this JWT against OpenCloud's public internal JWKs endpoint, our sidecar cryptographically trusts the proxy without attempting to re-implement its own redundant OAuth2 handshake.
 
@@ -74,21 +76,20 @@ Before writing datastore logic or user identity extraction routines in Go, we mu
 - **[ ] 540 - `POST /api/voting/features/{id}/vote`**: Atomically toggles a vote inside `voting_votes`. Enforces database constraints to prevent duplicate votes.
 - **[ ] 550 - `GET /healthz` & `/readyz`**: Provision standard readiness probes that execute a lightweight `SELECT 1` ping against the SQLite database so a container orchestrator can actively verify process health.
 - **[ ] 560 - `GET /metrics`**: Expose a Prometheus-compatible metrics endpoint documenting queue depths, API latencies, and 4xx/5xx HTTP error frequencies for standard OpenCloud monitoring.
+- **[ ] 570 - [TEST] `api/handlers_test.go`**: Verify feature creation rejects empty/oversized titles, vote toggle prevents duplicates under simulated concurrency, delete enforces ownership authorization, and Prometheus `/metrics` returns valid output.
 
 **[VERIFY SUBMITTABILITY POST-PHASE]**: We must verify the Go controllers map cleanly to OpenCloud REST specifications, and ensure the `/metrics` endpoint is successfully scraping valid data.
 
 ---
 
-## Phase 600: Exhaustive Unit Testing (Backend)
+## Phase 600: Backend Test Coverage Gate
 > [!WARNING]
 > **Submittability Constraint:** Verify that this implementation does **not create a new code path**. Go test files must utilize the standard library `net/http/httptest` without relying on exotic third-party test runners or BDD syntactic sugar.
 
-- **[ ] 610 - `TestAuthMiddleware`**: Verify that missing, expired, or cryptographically invalid OpenCloud JWTs are rejected.
-- **[ ] 620 - `TestCreateFeature`**: Verify submissions with empty titles or massively out-of-bounds payloads are rejected.
-- **[ ] 630 - `TestToggleVote`**: Verify parallel vote inflation attempts fail gracefully under simulated load.
-- **[ ] 640 - `TestDeleteFeature`**: Verify attackers cannot delete Features assigned to an unrelated User ID.
+- **[ ] 610 - [VERIFY]**: Run `go test -cover ./...` across the entire `api/` module. Confirm minimum 80% line coverage across handlers, middleware, and database logic.
+- **[ ] 620 - [VERIFY]**: Confirm zero third-party test runners (Ginkgo, Gomega, testify) were introduced. All assertions must use standard `t.Errorf` / `t.Fatalf` patterns.
 
-**[VERIFY SUBMITTABILITY POST-PHASE]**: We must ensure no third-party test-runners (like Ginkgo or Gomega) were used in `api_test.go`, verifying strict adherence to standard Go testing loops.
+**[VERIFY SUBMITTABILITY POST-PHASE]**: The coverage report must demonstrate that all critical paths (auth rejection, vote deduplication, ownership enforcement) are exercised.
 
 ---
 
