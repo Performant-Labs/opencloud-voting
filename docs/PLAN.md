@@ -8,14 +8,20 @@ A highly secure, scalable feature voting board built as an OpenCloud Web extensi
 
 ---
 
+## Global Execution Rules
+> [!IMPORTANT]
+> **Mandatory Post-Phase Commit:** After completing every phase, all modified and new files must be staged and committed with a descriptive message referencing the phase number (e.g., `docs: complete Phase 100 pre-flight directives`). This ensures each phase produces a discrete, reviewable Git checkpoint and prevents catastrophic work loss across long execution sessions.
+
+---
+
 ## Phase 100: Pre-Flight & AI Agent Directives
 Before any source code or docker compose modifications are made, the system must strictly adhere to the operational runbooks to ensure **zero hangs** and flawless execution:
-- **[ ] 110 - [INITIALIZE LOG]**: Create `docs/EXECUTION_LOG.md` to rigorously document every architectural decision alongside its execution method. Every technical gap bridged must answer both *How* it was built and *Why* the decision was made, ensuring an immutable audit trail without cluttering the master `PLAN.md` checklist.
-- **[ ] 120 - [VERIFY]**: Explicitly check that the centralized `ai_guidance` subtree is properly checked out. You must halt and restore the Git Subtree if the local reference documents are missing.
-- **[ ] 130 - [READ] `docs/ai_guidance/projects/opencloud/PLAN_INSTRUCTIONS.md`**: Adhere strictly to these overarching AI planning instructions for OpenCloud projects to maintain architectural and operational consistency.
-- **[ ] 140 - [READ] `docs/ai_guidance/TROUBLESHOOTING.md`**: Exhaustively read the local troubleshooting instructions. This ensures that when configuring the tricky `proxy.yaml` routing constraints, we avoid debugging loops and hanging pitfalls.
-- **[ ] 150 - [READ] `docs/INTERNATIONALIZE.md` (I18N SEPARATION OF CONCERNS)**: The backend Go API must **never** handle internationalization. You must thoroughly read the `INTERNATIONALIZE.md` runbook to understand exactly why we reject `vue-i18n` in favor of OpenCloud's strict `vue3-gettext` (`.po`) strategy before writing any localization code or abstracting API exception strings.
-- **[ ] 160 - [READ] `docs/ai_guidance/NAMING.md`**: Enforce strict Contextual Naming Conventions across all assets (databases, domains, endpoints, variables). Absolutely zero "dumb," generic names (e.g., `data.json`, `app.db`, `store.sqlite`). You must read this overarching `NAMING.md` constraint to guarantee zero enterprise collisions across the microservice mesh.
+- **[x] 110 - [INITIALIZE LOG]**: Create `docs/EXECUTION_LOG.md` to rigorously document every architectural decision alongside its execution method. Every technical gap bridged must answer both *How* it was built and *Why* the decision was made, ensuring an immutable audit trail without cluttering the master `PLAN.md` checklist.
+- **[x] 120 - [VERIFY]**: Explicitly check that the centralized `ai_guidance` subtree is properly checked out. You must halt and restore the Git Subtree if the local reference documents are missing.
+- **[x] 130 - [READ] `docs/ai_guidance/projects/opencloud/PLAN_INSTRUCTIONS.md`**: Adhere strictly to these overarching AI planning instructions for OpenCloud projects to maintain architectural and operational consistency.
+- **[x] 140 - [READ] `docs/ai_guidance/TROUBLESHOOTING.md`**: Exhaustively read the local troubleshooting instructions. This ensures that when configuring the tricky `proxy.yaml` routing constraints, we avoid debugging loops and hanging pitfalls.
+- **[x] 150 - [READ] `docs/INTERNATIONALIZE.md` (I18N SEPARATION OF CONCERNS)**: The backend Go API must **never** handle internationalization. You must thoroughly read the `INTERNATIONALIZE.md` runbook to understand exactly why we reject `vue-i18n` in favor of OpenCloud's strict `vue3-gettext` (`.po`) strategy before writing any localization code or abstracting API exception strings.
+- **[x] 160 - [READ] `docs/ai_guidance/NAMING.md`**: Enforce strict Contextual Naming Conventions across all assets (databases, domains, endpoints, variables). Absolutely zero "dumb," generic names (e.g., `data.json`, `app.db`, `store.sqlite`). You must read this overarching `NAMING.md` constraint to guarantee zero enterprise collisions across the microservice mesh.
 
 ---
 
