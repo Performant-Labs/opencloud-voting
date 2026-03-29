@@ -11,6 +11,7 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/opencloud-eu/opencloud-voting/api/middleware"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -53,7 +54,7 @@ func main() {
 	}
 	logger.Info().Msg("database schema verified")
 
-	// ── HTTP Server & Routing (Step 340) ───────────────────────────────
+	// ── HTTP Server & Routing (Steps 510–560) ─────────────────────────
 	//
 	// Why Go 1.22 ServeMux?
 	// PLAN_INSTRUCTIONS.md mandates standard library exclusivity for
@@ -61,7 +62,22 @@ func main() {
 	// method-based routing natively (e.g., "GET /path").
 	mux := http.NewServeMux()
 
-	// Health & readiness probes (Step 550 placeholder)
+	// Initialize the application layers.
+	store := NewVotingStore(db, logger)
+	handler := NewVotingHandler(store, logger)
+	metrics := NewVotingMetrics()
+
+	// OpenID Connect (OIDC) auth middleware.
+	issuerURL := os.Getenv("OC_OIDC_ISSUER")
+	if issuerURL == "" {
+		issuerURL = "https://cloud.opencloud.test"
+	}
+	auth := middleware.NewOIDCAuth(issuerURL, logger)
+
+	// Per-user rate limiter: 30 requests per second, burst of 60.
+	rateLimiter := middleware.NewRateLimiter(30, 60, time.Second, logger)
+
+	// Health & readiness probes (Step 550) — no auth required.
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		if err := db.PingContext(r.Context()); err != nil {
 			http.Error(w, "unhealthy", http.StatusServiceUnavailable)
@@ -79,16 +95,19 @@ func main() {
 		fmt.Fprintln(w, "ready")
 	})
 
-	// API routes will be registered in Phase 500.
-	// Placeholder root for basic connectivity verification.
-	mux.HandleFunc("GET /api/voting/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintln(w, `{"service":"opencloud-feature-voting","status":"ok"}`)
-	})
+	// Prometheus metrics endpoint (Step 560) — no auth required.
+	mux.HandleFunc("GET /metrics", metrics.Handler())
+
+	// Register API routes (Steps 510–540).
+	handler.RegisterRoutes(mux)
+
+	// Build the middleware chain: metrics → auth → rate limiter → mux.
+	// Metrics wraps everything to capture latency including auth overhead.
+	chain := metrics.Middleware(auth.Middleware(rateLimiter.Middleware(mux)))
 
 	server := &http.Server{
 		Addr:         ":8080",
-		Handler:      mux,
+		Handler:      chain,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,

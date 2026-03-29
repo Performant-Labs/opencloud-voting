@@ -134,4 +134,43 @@ This document records every architectural decision, technical gap bridged, and d
 - **How**: Created `api/middleware/auth_test.go` with 9 tests covering: missing header (401), malformed header (401), unreachable issuer (503), context extraction (empty and populated), burst allowance, over-burst rejection (429), per-user isolation, and unauthenticated passthrough.
 - **Tests**: All 9 PASS. Combined with Phase 300: 15/15 total tests pass.
 
+---
 
+## Phase 500: Implement Secure API Endpoints & Observability
+
+### 510 — GET /api/voting/features
+- **When**: 2026-03-29T14:03 PDT
+- **How**: Created `api/store.go` (`ListFeatures`) with a `LEFT JOIN` query returning features sorted by vote count descending. Created `api/handlers.go` (`listFeatures`) wrapping it as an HTTP handler.
+- **Why**: `LEFT JOIN` ensures features with zero votes still appear. Sort by vote count gives the most-wanted features prominence.
+
+### 520 — POST /api/voting/features
+- **How**: `createFeature` handler validates title (non-empty, ≤255 chars), generates a 16-byte hex ID via `crypto/rand`, and delegates to `store.CreateFeature`. Returns 201 with the generated ID.
+- **Why**: `crypto/rand` prevents predictable IDs. Server-side title validation prevents the database `CHECK` constraint from returning an opaque SQL error.
+
+### 530 — DELETE /api/voting/features/{id}
+- **How**: `deleteFeature` handler extracts `{id}` via Go 1.22 `r.PathValue("id")`, delegates to `store.DeleteFeature` which uses `WHERE id = ? AND created_by = ?`. Returns 204 on success, 403 if the user isn't the owner.
+- **Why**: Ownership enforcement happens at the SQL level — a single query that won't delete unless both conditions match. No separate "check then delete" race condition.
+
+### 540 — POST /api/voting/features/{id}/vote
+- **How**: `toggleVote` handler uses a transaction: try DELETE first, if rows affected > 0 the vote was removed; otherwise INSERT. Returns `{"voted": true/false}`.
+- **Why**: Transactional toggle prevents duplicate votes under concurrency. No separate "check if voted" query that could race.
+
+### 550 — GET /healthz & /readyz
+- **How**: Already implemented in Phase 300. Confirmed still working.
+
+### 560 — GET /metrics
+- **How**: Created `api/metrics.go` with atomic counters for total requests, 4xx, 5xx, and average latency. Middleware wrapper captures status codes. Outputs Prometheus text exposition format.
+- **Why**: Standard library only (no prometheus/client_golang dependency). Atomic counters for lock-free concurrent updates on hot paths.
+
+### 570 — Handler Tests
+- **When**: 2026-03-29T14:06 PDT
+- **How**: Created `api/handlers_test.go` with 12 integration tests using real SQLite databases: feature CRUD, vote toggling, ownership enforcement, concurrent vote inflation, empty/oversized title rejection, unauthenticated access, and Prometheus metrics output verification.
+- **Tests**: All 12 PASS. Combined with Phases 300+400: **27/27 total tests pass**.
+
+### Post-Phase Submittability Verification
+- **`go build`**: Compiles cleanly.
+- **`go fmt`**: No formatting changes.
+- **`go test -v -count=1 ./...`**: 27/27 pass (0.677s + 0.385s).
+- **context.Context**: Every store method accepts `ctx` as first parameter.
+- **Error wrapping**: Every error uses `fmt.Errorf("...: %w", err)`.
+- **Machine-readable error codes**: All error responses use `ERR_*` codes for vue3-gettext mapping.

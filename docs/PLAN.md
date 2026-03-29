@@ -70,13 +70,13 @@ Before writing datastore logic or user identity extraction routines in Go, we mu
 > [!WARNING]
 > **Submittability Constraint:** Verify that this implementation does **not create a new code path**. The API endpoints must consume and return JSON schemas that precisely match the standard REST conventions adopted by oCIS. Additionally, as per the OpenCloud Go Guidelines, every major controller and database function **must** accept a `context.Context` as its first parameter to ensure proper timeout cascading, and all errors must be explicitly wrapped using `fmt.Errorf("...: %w", err)`.
 
-- **[ ] 510 - `GET /api/voting/features`**: Returns all features joined with vote counts.
-- **[ ] 520 - `POST /api/voting/features`**: Validates input (max 255 char titles) and inserts new records into `voting_features`.
-- **[ ] 530 - `DELETE /api/voting/features/{id}`**: Enforces strict authorization (only the contextual `userID` that created the feature can delete it).
-- **[ ] 540 - `POST /api/voting/features/{id}/vote`**: Atomically toggles a vote inside `voting_votes`. Enforces database constraints to prevent duplicate votes.
-- **[ ] 550 - `GET /healthz` & `/readyz`**: Provision standard readiness probes that execute a lightweight `SELECT 1` ping against the SQLite database so a container orchestrator can actively verify process health.
-- **[ ] 560 - `GET /metrics`**: Expose a Prometheus-compatible metrics endpoint documenting queue depths, API latencies, and 4xx/5xx HTTP error frequencies for standard OpenCloud monitoring.
-- **[ ] 570 - [TEST] `api/handlers_test.go`**: Verify feature creation rejects empty/oversized titles, vote toggle prevents duplicates under simulated concurrency, delete enforces ownership authorization, and Prometheus `/metrics` returns valid output.
+- **[x] 510 - `GET /api/voting/features`**: Returns all features joined with vote counts.
+- **[x] 520 - `POST /api/voting/features`**: Validates input (max 255 char titles) and inserts new records into `voting_features`.
+- **[x] 530 - `DELETE /api/voting/features/{id}`**: Enforces strict authorization (only the contextual `userID` that created the feature can delete it).
+- **[x] 540 - `POST /api/voting/features/{id}/vote`**: Atomically toggles a vote inside `voting_votes`. Enforces database constraints to prevent duplicate votes.
+- **[x] 550 - `GET /healthz` & `/readyz`**: Provision standard readiness probes that execute a lightweight `SELECT 1` ping against the SQLite database so a container orchestrator can actively verify process health.
+- **[x] 560 - `GET /metrics`**: Expose a Prometheus-compatible metrics endpoint documenting queue depths, API latencies, and 4xx/5xx HTTP error frequencies for standard OpenCloud monitoring.
+- **[x] 570 - [TEST] `api/handlers_test.go`**: Verify feature creation rejects empty/oversized titles, vote toggle prevents duplicates under simulated concurrency, delete enforces ownership authorization, and Prometheus `/metrics` returns valid output.
 
 **[VERIFY SUBMITTABILITY POST-PHASE]**: We must verify the Go controllers map cleanly to OpenCloud REST specifications, and ensure the `/metrics` endpoint is successfully scraping valid data.
 

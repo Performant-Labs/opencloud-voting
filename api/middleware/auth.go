@@ -25,6 +25,13 @@ func UserIDFromContext(ctx context.Context) string {
 	return ""
 }
 
+// ExportedUserIDKey returns the context key used to store the user ID.
+// This is exported for use in test code that needs to inject user IDs
+// into request contexts without going through the full OIDC flow.
+func ExportedUserIDKey() contextKey {
+	return userIDKey
+}
+
 // OIDCAuth provides OpenID Connect (OIDC) JWT validation middleware that
 // dynamically discovers the issuer's JWKs endpoint via
 // .well-known/openid-configuration.
