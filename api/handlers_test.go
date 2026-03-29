@@ -341,3 +341,108 @@ func TestMetricsEndpoint(t *testing.T) {
 		t.Error("metrics output missing voting_avg_latency_ms")
 	}
 }
+
+func TestMetricsMiddleware_RecordsStatusCodes(t *testing.T) {
+	metrics := NewVotingMetrics()
+
+	// Wrap a handler that returns 400.
+	badHandler := metrics.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	badHandler.ServeHTTP(rec, req)
+
+	// Verify the 4xx counter incremented.
+	metricsReq := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	metricsRec := httptest.NewRecorder()
+	metrics.Handler().ServeHTTP(metricsRec, metricsReq)
+
+	body := metricsRec.Body.String()
+	if !strings.Contains(body, "voting_requests_total 1") {
+		t.Error("expected voting_requests_total to be 1")
+	}
+	if !strings.Contains(body, "voting_requests_4xx 1") {
+		t.Error("expected voting_requests_4xx to be 1")
+	}
+}
+
+// --- GDPR Deletion Tests ---
+
+func TestDeleteUserData_RemovesAllData(t *testing.T) {
+	_, store := setupTestApp(t)
+
+	ctx := context.Background()
+
+	// User A creates a feature and votes on it.
+	if err := store.CreateFeature(ctx, "feat-1", "User A Feature", "desc", "user-a"); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	if _, err := store.ToggleVote(ctx, "feat-1", "user-a"); err != nil {
+		t.Fatalf("vote: %v", err)
+	}
+
+	// User B also votes on user A's feature.
+	if _, err := store.ToggleVote(ctx, "feat-1", "user-b"); err != nil {
+		t.Fatalf("vote user-b: %v", err)
+	}
+
+	// GDPR erasure for user A.
+	if err := store.DeleteUserData(ctx, "user-a"); err != nil {
+		t.Fatalf("delete user data: %v", err)
+	}
+
+	// User A's feature should be gone, along with all votes on it.
+	features, err := store.ListFeatures(ctx)
+	if err != nil {
+		t.Fatalf("list features: %v", err)
+	}
+	if len(features) != 0 {
+		t.Errorf("expected 0 features after GDPR erasure, got %d", len(features))
+	}
+}
+
+// --- Invalid JSON Tests ---
+
+func TestCreateFeature_InvalidJSON(t *testing.T) {
+	mux, _ := setupTestApp(t)
+
+	req := requestWithUser(http.MethodPost, "/api/voting/features", []byte("not json"), "user-1")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("invalid JSON: got %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+
+	var errResp ErrorResponse
+	json.Unmarshal(rec.Body.Bytes(), &errResp)
+	if errResp.Code != "ERR_INVALID_JSON" {
+		t.Errorf("expected ERR_INVALID_JSON, got %q", errResp.Code)
+	}
+}
+
+func TestDeleteFeature_NoAuth(t *testing.T) {
+	mux, _ := setupTestApp(t)
+
+	req := requestWithUser(http.MethodDelete, "/api/voting/features/some-id", nil, "")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("delete no auth: got %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestToggleVote_NoAuth(t *testing.T) {
+	mux, _ := setupTestApp(t)
+
+	req := requestWithUser(http.MethodPost, "/api/voting/features/some-id/vote", nil, "")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("vote no auth: got %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
