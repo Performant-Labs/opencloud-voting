@@ -36,15 +36,15 @@ Before writing datastore logic or user identity extraction routines in Go, we mu
 > [!WARNING]
 > **Submittability Constraint:** Verify that this implementation does **not create a new code path**. We must exclusively mirror the standard `go.mod` structure, OpenCloud JSON logging interfaces, and `proxy.yaml` routing definitions established by core OpenCloud microservices. Do not invent arbitrary infrastructure abstractions.
 
-- **[ ] 310 - [NEW] `api/go.mod`**: Initialize the Go module (`github.com/opencloud-eu/feature-voting/api`).
-- **[ ] 320 - [NEW] `api/Dockerfile`**: Create a lightweight Alpine multi-stage Dockerfile for the Go backend.
-- **[ ] 330 - [MODIFY] `pl-opencloud-server` configuration**: 
+- **[x] 310 - [NEW] `api/go.mod`**: Initialize the Go module (`github.com/opencloud-eu/feature-voting/api`).
+- **[x] 320 - [NEW] `api/Dockerfile`**: Create a lightweight Alpine multi-stage Dockerfile for the Go backend.
+- **[x] 330 - [MODIFY] `pl-opencloud-server` configuration**: 
   - Update `docker-compose.yml` to mount the shared `opencloud-extensions-data` Docker volume and spin up the sidecar.
   - Implement `proxy.yaml` rules to securely route external requests from `/api/voting/*` directly to the container.
-- **[ ] 340 - [NEW] `api/main.go`**: Stub out the basic HTTP server using `net/http`. For the database connection, the sidecar will dynamically check for an external connection string (e.g., `OC_DB_URL` or `POSTGRES_URL`). If provided by an enterprise OpenCloud deployment, it natively hooks into that external Postgres or MariaDB cluster. If none exists, it gracefully falls back to initializing a local SQLite file at `DB_PATH`. 
+- **[x] 340 - [NEW] `api/main.go`**: Stub out the basic HTTP server using `net/http`. For the database connection, the sidecar will dynamically check for an external connection string (e.g., `OC_DB_URL` or `POSTGRES_URL`). If provided by an enterprise OpenCloud deployment, it natively hooks into that external Postgres or MariaDB cluster. If none exists, it gracefully falls back to initializing a local SQLite file at `DB_PATH`. 
   - **[SCALING]**: If utilizing the SQLite fallback, it will strictly enforce `PRAGMA journal_mode=WAL` (Write-Ahead Logging) and `PRAGMA busy_timeout=5000`. We explicitly reject building bespoke migration frameworks; the schema is either deployed fresh or managed entirely by the upstream enterprise DB environment.
-- **[ ] 350 - [STRUCTURED LOGGING]**: Configure standard Go 1.21+ `log/slog` to format all application outputs as structured JSON. This strictly adheres to OpenCloud ELK ingestion standards.
-- **[ ] 360 - [GRACEFUL SHUTDOWN]**: Instruct the `net/http` server to catch `SIGTERM` OS interrupts, forcing a clean drain of active HTTP connections and SQLite WAL queues before container death, preventing data loss during pod scale-down.
+- **[x] 350 - [STRUCTURED LOGGING]**: Configure standard Go 1.21+ `log/slog` to format all application outputs as structured JSON. This strictly adheres to OpenCloud ELK ingestion standards.
+- **[x] 360 - [GRACEFUL SHUTDOWN]**: Instruct the `net/http` server to catch `SIGTERM` OS interrupts, forcing a clean drain of active HTTP connections and SQLite WAL queues before container death, preventing data loss during pod scale-down.
 
 **[VERIFY SUBMITTABILITY POST-PHASE]**: We must pause and audit the `docker-compose.yml` and `proxy.yaml` to ensure no custom routing bypasses were created, and verify that `log/slog` is outputting valid JSON.
 

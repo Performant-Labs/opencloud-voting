@@ -51,3 +51,49 @@ This document records every architectural decision, technical gap bridged, and d
 - **How**: Created `docs/PRIVACY_ASSESSMENT.md` with 7 sections covering: Controller/Processor classification, PII inventory table, the `sub` vs `preferred_username` decision, Right to Erasure cascading SQL, data minimization audit, CCPA obligations, and technical safeguards.
 - **Why**: Enterprise OpenCloud deployments serving EU customers require formal GDPR documentation. Without this assessment, the extension could expose the hosting organization to regulatory fines.
 - **Decision**: Default behavior is full cascading deletion (not anonymization) when a user is removed. Anonymization is documented as a Controller-configurable alternative.
+
+---
+
+## Phase 300: Go Sidecar Scaffolding & High-Concurrency Shared DB
+
+### 310 — Go Module Initialized
+- **When**: 2026-03-29T13:22 PDT
+- **How**: Ran `go mod init github.com/opencloud-eu/opencloud-voting/api`. Module name mirrors the OpenCloud GitHub org namespace for eventual upstream submission.
+- **Why**: Using the `opencloud-eu` GitHub org path ensures `go get` resolution aligns with the upstream repository structure.
+
+### 320 — Dockerfile Created
+- **When**: 2026-03-29T13:23 PDT
+- **How**: Alpine multi-stage: Stage 1 uses `golang:1.26-alpine` with `gcc`/`musl-dev` for CGO (required by `mattn/go-sqlite3`). Stage 2 copies only the compiled binary into `alpine:3.21`.
+- **Why**: CGO is mandatory because SQLite requires C bindings. The multi-stage build keeps the runtime image minimal (~15MB) vs the ~800MB build image.
+- **Decision**: Named the binary `voting-api` (not generic `app` or `server`) per NAMING.md conventions.
+
+### 330 — Infrastructure Wiring
+- **When**: 2026-03-29T13:23 PDT
+- **How**: 
+  - `docker-compose.yml`: Added `voting-api` service on `opencloud-net` with zero host port exposure. Created dedicated `voting-data` Docker volume mounted at `/data`.
+  - `proxy.yaml`: Added route `endpoint: /api/voting/` → `backend: http://voting-api:8080` under the existing `default` policy.
+- **Why**: Zero host ports means the sidecar is physically unreachable without traversing the OpenCloud authentication proxy. The proxy forwards the OIDC access token automatically. Used `voting-data` (not `opencloud-extensions-data`) for complete data isolation per NAMING.md.
+- **Decision**: The `build.context` points to `../opencloud-voting/api` (relative sibling path) rather than embedding the Go code inside `pl-opencloud-server`. This maintains clean repository separation.
+
+### 340 — main.go HTTP Server & Database
+- **When**: 2026-03-29T13:24 PDT
+- **How**: Combined routines into a single `main.go`: `openDatabase()` checks `OC_DB_URL` for Postgres, falls back to SQLite at `DB_PATH` with `?_journal_mode=WAL&_busy_timeout=5000`. `migrateSchema()` creates `voting_features` and `voting_votes` tables with `ON DELETE CASCADE`.
+- **Why**: Prefixed table names (`voting_*`) prevent collision if the database is shared. `ON DELETE CASCADE` on `voting_votes.feature_id` ensures orphan votes are automatically cleaned when a feature is removed. Composite primary key `(feature_id, user_id)` on `voting_votes` structurally prevents duplicate votes at the schema level.
+- **Decision**: Schema migration uses `CREATE TABLE IF NOT EXISTS` (idempotent). We explicitly rejected building a versioned migration framework per PLAN instructions.
+
+### 350 — Structured Logging
+- **When**: 2026-03-29T13:24 PDT
+- **How**: `slog.NewJSONHandler(os.Stdout, ...)` with level controlled by `OC_LOG_LEVEL` env var. Set as the default logger via `slog.SetDefault()`.
+- **Why**: JSON stdout is the only format compatible with OpenCloud's ELK/Loki ingestion pipelines.
+
+### 360 — Graceful Shutdown
+- **When**: 2026-03-29T13:24 PDT
+- **How**: Traps `SIGINT`/`SIGTERM` via `signal.Notify`, then calls `server.Shutdown(ctx)` with a 15-second deadline to drain connections.
+- **Why**: Abrupt container kills during pod scale-down corrupt SQLite WAL journals and cause client 502s.
+
+### Post-Phase Submittability Verification
+- **`go build`**: Compiles cleanly with zero errors.
+- **`go fmt`**: No formatting changes required.
+- **`docker-compose.yml`**: No host ports exposed on `voting-api`. Uses `opencloud-net` internal networking only.
+- **`proxy.yaml`**: Route follows the exact same pattern as the existing `radicale` routes (endpoint + backend, no custom middleware).
+- **`log/slog`**: JSONHandler configured on stdout. Enterprise-compliant.
