@@ -16,8 +16,8 @@ Before executing tests, your environment must be initialized to serve as a prope
 2. **Start the OpenCloud Stack:**
    Ensure that your local OpenCloud environment (`pl-opencloud-server`) is actively running. This serves as the remote backend for Graph API calls and WebDAV storage during the tests.
 
-3. **Verify Environment Configuration:**
-   Verify that any required configuration for the test suite is properly set up to point to your live `cloud.opencloud.test` development proxy.
+3. **Verify Environment Configuration (Automated):**
+   We provide a fully automated script `./web/scripts/run_e2e_tests.sh` that actively checks the configuration and reaches out to `cloud.opencloud.test` to verify 100% readiness.
 
 ---
 
@@ -44,8 +44,10 @@ docker compose restart opencloud
 Execute Playwright. It will spawn fresh environments, automatically provision shared OpenCloud workspaces using the backend SDK, and execute the tests.
 
 ```bash
-pnpm test:e2e
+./web/scripts/run_e2e_tests.sh
 ```
+
+> **Note:** The `run_e2e_tests.sh` script will automatically halt if the UI proxy returns 404/502/etc. Ensure you successfully built and copied `dist/` over if the proxy healthcheck fails.
 
 ### 3. Verify System State
 An effective test isn't just a UI interaction; it is a verification of the underlying state:
