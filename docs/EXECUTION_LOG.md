@@ -189,3 +189,11 @@ This document records every architectural decision, technical gap bridged, and d
 ### 620 — Third-Party Test Runner Audit
 - **How**: `grep -rn "ginkgo|gomega|testify|assert.|require." *_test.go` — zero matches. All assertions use `t.Errorf` / `t.Fatalf`.
 - **Total tests**: 33 (18 unit + 15 integration). All pass.
+
+### Test Breakdown
+
+| File | Type | Tests | What's Covered |
+| :--- | :--- | :--- | :--- |
+| `main_test.go` | Unit | 6 | WAL mode, schema idempotency, duplicate vote PK, cascade delete, healthz, readyz |
+| `middleware/auth_test.go` | Unit | 9 | Missing/malformed header, unreachable issuer, context extraction, burst allow/reject, per-user isolation, passthrough |
+| `handlers_test.go` | Integration | 18 | Feature CRUD, vote toggle/concurrency, ownership enforcement, 404 on nonexistent, GDPR deletion, metrics middleware, invalid JSON, unauthenticated access |
