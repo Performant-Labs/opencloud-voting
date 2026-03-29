@@ -33,11 +33,39 @@ This is the opposite of PHP (`tests/`), Python (`tests/`), and JavaScript (`__te
 - Mark shared setup functions with `t.Helper()` so error stack traces point to the calling test, not the helper.
 - Use `t.TempDir()` for temporary files — Go automatically cleans up the directory after the test completes.
 
+## Separating Unit Tests from Integration Tests
+
+Use Go **build tags** to separate fast unit tests from slower integration tests that require real databases, network access, or full middleware chains.
+
+Add this as the **first line** of integration test files (before `package`):
+
+```go
+//go:build integration
+
+package mypackage
+```
+
+### What qualifies as an integration test?
+- Tests that wire up multiple components together (handler → store → real database)
+- Tests that require real file I/O (SQLite databases, temp files)
+- Tests that make network calls (HTTP, OIDC discovery)
+
+### What stays as a unit test?
+- Tests for a single function or struct in isolation
+- Tests using mocked dependencies or `httptest`
+- Tests that complete in milliseconds with no I/O
+
 ## Running Tests
 
 ```bash
-# Run all tests in the module
+# Run unit tests only (fast, no build tags)
 go test ./...
+
+# Run integration tests only
+go test -tags=integration ./...
+
+# Run ALL tests (unit + integration)
+go test -tags=integration ./...
 
 # Verbose output with test names
 go test -v ./...
@@ -45,8 +73,8 @@ go test -v ./...
 # Force fresh run (bypass cache)
 go test -v -count=1 ./...
 
-# Run with coverage report
-go test -cover ./...
+# Run with coverage report (include integration)
+go test -tags=integration -cover ./...
 ```
 
 ## Key Differences from Other Ecosystems
