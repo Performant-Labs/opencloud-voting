@@ -1,101 +1,119 @@
 # Feature Voting App — Project Plan
 
 ## Overview
+A highly secure, scalable feature voting board built as an OpenCloud Web extension, utilizing an OpenCloud-native **Go microservice sidecar** connected to a shared external SQLite volume. This architecture is explicitly designed to be natively compatible with oCIS (ownCloud Infinite Scale) for future upstream submission.
 
-A feature voting board built as an OpenCloud Web extension with a SQLite-backed API sidecar.
+## AI Agent Instructions & Troubleshooting Protocols
+Before any source code or docker compose modifications are made, the system must strictly adhere to the operational runbooks to ensure **zero hangs** and flawless execution:
+- **[READ] `docs/ai_guidance/TROUBLESHOOTING.md`**: Exhaustively read the local troubleshooting instructions. This ensures that when configuring the tricky `proxy.yaml` routing constraints and proxy variables, we avoid the exact debugging loops and hanging pitfalls that caused previous sidecar iterations to be abandoned.
 
-## Architecture
+---
 
-- **Frontend** (`web/`): Vue 3 + TypeScript OpenCloud web extension (`@opencloud-eu/web-pkg`)
-- **Backend** (`api/`): Hono + better-sqlite3 REST API sidecar
+## Phase 1: Go Sidecar Scaffolding & High-Concurrency Shared DB
 
-## AI Agent Instructions
+> [!WARNING]
+> **Submittability Constraint:** Verify that this implementation does **not create a new code path**. We must exclusively mirror the standard `go.mod` structure, logging interfaces, and `proxy.yaml` routing definitions established by core OpenCloud microservices. Do not invent arbitrary infrastructure abstractions.
 
-> **When a command hangs, a process gets stuck, or a build/test times out:**
->
-> 1. Consult [`docs/HANGING_PROCESSES.md`](HANGING_PROCESSES.md) for known causes and solutions.
-> 2. If the issue matches an existing entry, follow the documented fix.
-> 3. If it's a **new** type of hang not yet documented, add a new numbered entry to `HANGING_PROCESSES.md` following the established format (Symptom → Root Cause → Detection → Solution → Prevention).
-> 4. Update the Quick Reference table at the top of the document.
->
-> This is a living document. Every hang encountered is an opportunity to prevent future ones.
+- **[NEW] `api/go.mod`**: Initialize the Go module (`github.com/opencloud-eu/feature-voting/api`).
+- **[NEW] `api/Dockerfile`**: Create a lightweight Alpine multi-stage Dockerfile for the Go backend.
+- **[MODIFY] `pl-opencloud-server` configuration**: 
+  - Update `docker-compose.yml` to spin up the `voting-api` container.
+  - Mount a shared `opencloud-extensions-data` Docker volume.
+  - Implement `proxy.yaml` rules to securely route external requests from `/api/voting/*` directly to the new sidecar container.
+- **[NEW] `api/main.go`**: Stub out the basic HTTP server using `net/http` and the data connection via a `DB_PATH` environment variable. 
+  - **[SCALING]**: To survive a "Thundering Herd" (a massive spike of valid users voting simultaneously), the SQLite connection will strictly enforce `PRAGMA journal_mode=WAL` (Write-Ahead Logging) and `PRAGMA busy_timeout=5000`. This prevents "database is locked" crashes by allowing concurrent reads, while gracefully queuing incoming write requests at a highly performant rate.
 
-## Phase 1: Scaffolding ✅
+**[VERIFY SUBMITTABILITY POST-PHASE]**: We must pause and audit the `docker-compose.yml` and `proxy.yaml` to ensure no custom routing bypasses or arbitrary proxy flags were created. The service networking must look identical to how OpenCloud natively wires up `.ocis/...` endpoints.
 
-- [x] Remove all Nextcloud PHP code (appinfo/, lib/, templates/, composer.*)
-- [x] Scaffold API sidecar (`api/`) with Hono + SQLite
-- [x] Scaffold OpenCloud web extension (`web/`) from web-app-skeleton pattern
-- [x] Update root files (.gitignore, Makefile, README.md)
+---
 
-## Phase 2: Local Development Environment ✅
+## Phase 2: Domain Models & OpenCloud Native Auth Middleware
 
-- [x] Verify `pnpm install` succeeds in both `api/` and `web/`
-- [x] Verify `pnpm test` passes in `api/` (10/10)
-- [x] Verify `pnpm build` succeeds in `web/` (152ms, 9.8kB)
-- [x] Configure Docker Compose for standalone development
-- [x] Integrate with `pl-opencloud-server` (`docker-compose.voting.yml`)
+> [!WARNING]
+> **Submittability Constraint:** Verify that this implementation does **not create a new code path**. When handling OpenID Connect token authentication and rate limiting, we must directly re-use OpenCloud's established JWKs behavior and the `go-chi` ecosystem rather than architecting custom security layers.
 
-## Phase 3: Feature Completeness ✅
+- **[NEW] `api/models.go`**: Define the Go structs for the voting endpoints, along with the SQLite schema creation utilizing **prefixed table names** to avoid multi-extension collision.
+- **[NEW] `api/middleware/auth.go`**: We will strictly **hook into OpenCloud's native authentication flow**. Instead of hardcoding JWT secrets, this Go middleware will dynamically fetch and validate the Bearer tokens against OpenCloud's specific oCIS `.well-known/openid-configuration` and `JWKs` (JSON Web Key Set) endpoints. This proves the extension is authentically interfacing with `oc` code.
+- **[NEW] `api/middleware/rate_limit.go`**: We will use `github.com/go-chi/httprate` to apply our endpoint limits (e.g., 5 requests per second per user) natively within the standard `net/http` framework.
 
-- [x] Verify API endpoint behavior — 12/12 tests passing (CRUD + vote + pagination)
-- [x] Vue component renders correctly (builds successfully, 11.7kB)
-- [x] Error handling: dismissible error banner, submitting state, disabled inputs, focus styles
-- [x] Pagination: API supports limit/offset with total count, "Load More" button in UI
+**[VERIFY SUBMITTABILITY POST-PHASE]**: We must pause and explicitly check that the Auth Middleware only fetches JSON Web Keys directly from OpenCloud's standard OIDC issuer endpoints. If it attempts to validate tokens using a hardcoded secret or fallback file, the step has failed and must be resolved.
 
-### Post-Phase 3 Audit (fixes applied)
+---
 
-Three issues found by auditing against official OpenCloud documentation:
+## Phase 3: Implement Secure API Endpoints
 
-1. **API URL mismatch** (fixed) — Routes now mount at `/features` instead of `/api/features`.
-   The proxy maps `/api/voting/*` → `http://voting-api:3456/*`, stripping the prefix.
-2. **`fetch()` won't carry auth token** (fixed) — Composable now accepts an `accessToken`
-   callback and attaches it as `Authorization: Bearer <token>`. Raw `credentials: 'include'`
-   alone doesn't work with OIDC token-based auth.
-3. **Redundant `web/manifest.json`** (fixed) — Removed. The build generates `dist/manifest.json`
-   with the correct hashed filename; source file was misleading.
+> [!WARNING]
+> **Submittability Constraint:** Verify that this implementation does **not create a new code path**. The API endpoints must consume and return JSON schemas that precisely match the standard REST conventions adopted by oCIS, avoiding custom bespoke payload wrappers.
 
-## Phase 4: Authentication & Security ✅
+Construct the core business logic querying the `voting_*` prefixed tables, relying on the hardened backend to enforce data constraints:
+- **`GET /api/voting/features`**: Returns all features joined with vote counts.
+- **`POST /api/voting/features`**: Validates input (max 255 char titles) and inserts new records into `voting_features`.
+- **`DELETE /api/voting/features/{id}`**: Enforces strict authorization (only the contextual `userID` that created the feature can delete it).
+- **`POST /api/voting/features/{id}/vote`**: Atomically toggles a vote inside `voting_votes`. Enforces database constraints to prevent duplicate votes.
 
-> **Architecture note (discovered in research):**
-> OpenCloud's **proxy service** is the auth gateway. It validates OIDC tokens
-> before forwarding requests to backend services. Our API sidecar does NOT
-> implement its own OIDC flow — instead, the proxy handles auth and passes
-> identity to the sidecar via headers.
+**[VERIFY SUBMITTABILITY POST-PHASE]**: We must parse the Go controllers ensuring that `net/http` JSON Marshalling structures map cleanly to the original OpenCloud payload specifications without injecting proprietary wrapper logic or unsupported headers.
 
-### 4a. Proxy routing — `proxy.yaml` ✅
+---
 
-- [x] Created `config/proxy.yaml` with `additional_policies` route
-- [x] Mounted `proxy.yaml` into OpenCloud container via docker-compose.voting.yml
+## Phase 4: Exhaustive Unit Testing (Backend)
 
-### 4b. API auth middleware — decode `X-Access-Token` ✅
+> [!WARNING]
+> **Submittability Constraint:** Verify that this implementation does **not create a new code path**. Go test files must utilize the standard library `net/http/httptest` and standard `testing` structs without relying on exotic third-party test runners or BDD syntactic sugar that the main project does not use.
 
-- [x] JWT decoding from `X-Access-Token` header (using `jose` library)
-- [x] JWT decoding from `Authorization: Bearer` header (web extension)
-- [x] Extract user identity from `preferred_username` or `sub` claims
-- [x] Optional JWKS signature validation when `OIDC_ISSUER` is set
-- [x] Basic Auth fallback only when `NODE_ENV !== 'production'`
-- [x] Removed invented `X-Opencloud-User` header
+To prove the module is structurally secure, we will write comprehensive Go unit tests (`api/*_test.go`) utilizing `net/http/httptest`:
+1. **`TestAuthMiddleware`**: Verify that missing, expired, or cryptographically invalid OpenCloud JWTs are rejected.
+2. **`TestCreateFeature`**: Verify submissions with empty titles or massively out-of-bounds payloads are rejected.
+3. **`TestToggleVote`**: Verify parallel vote inflation attempts fail gracefully under simulated load.
+4. **`TestDeleteFeature`**: Verify attackers cannot delete Features assigned to an unrelated User ID.
 
-### 4c. Web extension — token forwarding ✅
+**[VERIFY SUBMITTABILITY POST-PHASE]**: We must ensure no third-party test-runners (like Ginkgo or Gomega) were used in `api_test.go`, verifying strict adherence to standard Go testing loops so that OpenCloud CI pipelines can natively parse test outputs.
 
-- [x] `App.vue` imports `useAuthStore` from `@opencloud-eu/web-pkg`
-- [x] Passes access token callback to `useVotingApi` composable
-- [x] Graceful fallback when running outside OpenCloud Web (standalone dev)
+---
 
-### 4d. Input sanitization & rate limiting ✅
+## Phase 5: Revert and Wire the Vue Frontend to OpenCloud SDKs
 
-- [x] HTML stripping middleware (`sanitize.ts`) — strips tags, enforces max lengths
-- [x] Rate limiter (`rateLimit.ts`) — 30 req/min per user with `X-RateLimit-*` headers
+> [!WARNING]
+> **Submittability Constraint:** Verify that this implementation does **not create a new code path**. We must actively remove our raw `fetch()` logic and replace it exclusively with OpenCloud's published SDKs (`@opencloud-eu/web-client` or `@opencloud-eu/web-pkg`).
 
-## Phase 5: Production Deployment
+- **[MODIFY] `web/src/composables/useVotingApi.ts`**:
+   - Strip out all WebDAV polling, XML logic, and manual ETag locking.
+   - We will replace our raw standard `fetch()` calls. To ensure we are **hooking into the code provided by oc**, we will leverage the `@opencloud-eu/web-client` or `@opencloud-eu/web-pkg` SDK utilities directly for making authenticated network requests to our Go sidecar, ensuring perfect alignment with OpenCloud's frontend networking architecture.
 
-- [ ] Build and publish API Docker image to GHCR
-- [ ] Create `proxy.yaml` template in `config/` for admin reference
-- [ ] Document deployment procedure for OpenCloud admins
-- [ ] Write admin configuration guide (env vars, volume mounts, proxy routing)
+**[VERIFY SUBMITTABILITY POST-PHASE]**: We must explicitly use `grep` (or manually analyze `useVotingApi.ts`) to verify that the standard global `fetch()` operator has been completely expunged in API calls, natively delegating authentication attachment and retries to the `@opencloud-eu/` imported wrappers.
 
-## Phase 6: CI/CD
+---
 
-- [ ] GitHub Actions: lint + test on PR
-- [ ] GitHub Actions: build + Docker image on release
-- [ ] Automated changelog generation
+## Phase 6: E2E Playwright Verification
+
+> [!WARNING]
+> **Submittability Constraint:** Verify that this implementation does **not create a new code path**. The E2E tests must pass inside the standard environment bounds without requiring special browser flags or out-of-band proxy tweaks that aren't natively supported.
+
+- Final verify that the entire stack runs perfectly in the browser by running the updated `web/tests/e2e` suite against the live OpenCloud proxy and Go sidecar cluster.
+
+**[VERIFY SUBMITTABILITY POST-PHASE]**: The Playwright output matrix must cleanly emulate OpenCloud's upstream End-to-End configuration, proving the app doesn't require "hacky" testing workarounds.
+
+---
+
+## Phase 7: Update Project Documentation
+
+> [!WARNING]
+> **Submittability Constraint:** Verify that this implementation does **not create a new code path**. Architectural decisions added to `ARCHITECTURE.md` must accurately reflect why standard microservice patterns were chosen and why custom web-hooks/WebDAV patterns were rejected.
+
+Since we are reversing the recent architectural decision to abandon the sidecar, we must update all associated documentation.
+- **[MODIFY] `README.md`**: Update the infrastructure diagram and quick-start instructions to include the Go building process.
+- **[MODIFY] `docs/ARCHITECTURE.md`**: Add a new addendum overriding the previous decision, documenting exactly why WebDAV was abandoned for security reasons.
+
+**[VERIFY SUBMITTABILITY POST-PHASE]**: The final review of `ARCHITECTURE.md` must accurately detail exactly how these Go microservices align natively with upstream oCIS design, serving as an explicit template for future OpenCloud developers reading the codebase.
+
+---
+
+## Phase 8: Production Deployment & CI/CD
+- Build and publish API Docker image to GHCR.
+- Ensure GitHub Actions handle automated testing and linting smoothly based on OpenCloud criteria.
+
+---
+
+## Phase 9: Final Whitehat Assessment & Penetration Test
+Before finalizing the implementation, the AI agent must re-assume its "Whitehat Security Researcher" persona and perform a final penetration test against the deployed OpenCloud proxy and Go sidecar infrastructure. 
+- **[AUDIT]**: Actively verify that the documented theoretical mitigations (Auth Middleware validation, SQLite WAL concurrent load handling, Submittability constraints) behave exactly as intended in practice.
+- **[UPDATE]**: Refresh `docs/SECURITY_ASSESSMENT.md` with hard evidence and live findings, certifying the application stack officially clear for main-repo submission.
