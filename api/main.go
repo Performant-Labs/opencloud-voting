@@ -77,8 +77,21 @@ func main() {
 	// Per-user rate limiter: 30 requests per second, burst of 60.
 	rateLimiter := middleware.NewRateLimiter(30, 60, time.Second, logger)
 
+
+
+	// Register API routes (Steps 510–540).
+	handler.RegisterRoutes(mux)
+
+	// Build the middleware chain for API routes only: auth → rate limiter → mux.
+	// Health probes and metrics must NOT go through auth — they're called by
+	// container orchestrators (Docker, Kubernetes) that don't have OIDC tokens.
+	apiChain := auth.Middleware(rateLimiter.Middleware(mux))
+
+	// Top-level router: probes and metrics bypass auth, API goes through the chain.
+	topMux := http.NewServeMux()
+
 	// Health & readiness probes (Step 550) — no auth required.
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+	topMux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		if err := db.PingContext(r.Context()); err != nil {
 			http.Error(w, "unhealthy", http.StatusServiceUnavailable)
 			return
@@ -86,7 +99,7 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, "ok")
 	})
-	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
+	topMux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		if err := db.PingContext(r.Context()); err != nil {
 			http.Error(w, "not ready", http.StatusServiceUnavailable)
 			return
@@ -96,14 +109,13 @@ func main() {
 	})
 
 	// Prometheus metrics endpoint (Step 560) — no auth required.
-	mux.HandleFunc("GET /metrics", metrics.Handler())
+	topMux.HandleFunc("GET /metrics", metrics.Handler())
 
-	// Register API routes (Steps 510–540).
-	handler.RegisterRoutes(mux)
+	// All API routes go through the authenticated middleware chain.
+	topMux.Handle("/api/", apiChain)
 
-	// Build the middleware chain: metrics → auth → rate limiter → mux.
-	// Metrics wraps everything to capture latency including auth overhead.
-	chain := metrics.Middleware(auth.Middleware(rateLimiter.Middleware(mux)))
+	// Metrics middleware wraps the top-level mux to capture latency for all routes.
+	chain := metrics.Middleware(topMux)
 
 	server := &http.Server{
 		Addr:         ":8080",
