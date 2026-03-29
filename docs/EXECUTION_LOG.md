@@ -35,3 +35,19 @@ This document records every architectural decision, technical gap bridged, and d
 - **When**: 2026-03-29T13:17 PDT
 - **How**: Authored and read during this session. Bans: `data.json`, `app.db`, `store.sqlite`. Mandates: contextual prefixing (e.g., `feature-votes-store.sqlite`, `VotingFeatureModel`).
 - **Why**: Generic naming causes catastrophic collision states when multiple OpenCloud extensions share Docker volumes.
+
+---
+
+## Phase 200: Privacy & Compliance Assessment (GDPR / CCPA)
+
+### 210 — Data Flow Research
+- **When**: 2026-03-29T13:20 PDT
+- **How**: Audited `web/src/types.ts` and `web/src/composables/useVotingApi.ts` to inventory every user-facing data field. Discovered the legacy code uses `preferred_username || sub` as the user identifier (line 70 of `useVotingApi.ts`).
+- **Why**: `preferred_username` is directly identifiable PII (e.g., `"john.smith"`). Storing it violates GDPR Article 5(1)(c) data minimization. The new Go sidecar must exclusively use the opaque `sub` claim, which is a pseudonymous UUID that cannot be reverse-engineered without identity provider access.
+- **Decision**: The `preferred_username` and `email` OIDC claims will **never** be persisted to the database. Only `sub` is stored. This mandatory change directly influences the Go models in Phase 400 (Step 410).
+
+### 220 — PRIVACY_ASSESSMENT.md Written
+- **When**: 2026-03-29T13:21 PDT
+- **How**: Created `docs/PRIVACY_ASSESSMENT.md` with 7 sections covering: Controller/Processor classification, PII inventory table, the `sub` vs `preferred_username` decision, Right to Erasure cascading SQL, data minimization audit, CCPA obligations, and technical safeguards.
+- **Why**: Enterprise OpenCloud deployments serving EU customers require formal GDPR documentation. Without this assessment, the extension could expose the hosting organization to regulatory fines.
+- **Decision**: Default behavior is full cascading deletion (not anonymization) when a user is removed. Anonymization is documented as a Controller-configurable alternative.

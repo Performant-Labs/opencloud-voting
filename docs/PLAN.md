@@ -27,8 +27,8 @@ Before any source code or docker compose modifications are made, the system must
 
 ## Phase 200: Privacy & Compliance Assessment (GDPR / CCPA)
 Before writing datastore logic or user identity extraction routines in Go, we must explicitly confirm our architecture adheres to paramount European (GDPR) and Californian (CCPA) data privacy regulations.
-- **[ ] 210 - [RESEARCH]**: AI must analyze the expected data flows (e.g., storing OpenID `sub` claims, `preferred_username`, or linking votes to user identities) strictly through the lens of data minimization, 'Right to be Forgotten' complexity, and PII storage. 
-- **[ ] 220 - [DOCUMENT]**: Write a dedicated `docs/PRIVACY_ASSESSMENT.md` summarizing whether this module acts as a Data Controller or Data Processor in the enterprise context, explicitly declaring which exact fields constitute identifiable PII, and mandating technical mitigations (like anonymizing IDs or supporting absolute cascading deletions when a user drops their account).
+- **[x] 210 - [RESEARCH]**: AI must analyze the expected data flows (e.g., storing OpenID `sub` claims, `preferred_username`, or linking votes to user identities) strictly through the lens of data minimization, 'Right to be Forgotten' complexity, and PII storage. 
+- **[x] 220 - [DOCUMENT]**: Write a dedicated `docs/PRIVACY_ASSESSMENT.md` summarizing whether this module acts as a Data Controller or Data Processor in the enterprise context, explicitly declaring which exact fields constitute identifiable PII, and mandating technical mitigations (like anonymizing IDs or supporting absolute cascading deletions when a user drops their account).
 
 ---
 
