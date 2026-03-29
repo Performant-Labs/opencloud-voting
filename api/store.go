@@ -22,16 +22,20 @@ func NewVotingStore(db *sql.DB, logger zerolog.Logger) *VotingStore {
 }
 
 // ListFeatures returns all features with their aggregated vote counts.
-func (s *VotingStore) ListFeatures(ctx context.Context) ([]Feature, error) {
+// When userID is non-empty, each feature includes a `voted` boolean
+// indicating whether that specific user has voted.
+func (s *VotingStore) ListFeatures(ctx context.Context, userID string) ([]Feature, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT
 			f.id, f.title, f.description, f.created_by, f.created_at,
-			COUNT(v.user_id) AS vote_count
+			COUNT(v.user_id) AS vote_count,
+			CASE WHEN uv.user_id IS NOT NULL THEN 1 ELSE 0 END AS voted
 		FROM voting_features f
 		LEFT JOIN voting_votes v ON f.id = v.feature_id
+		LEFT JOIN voting_votes uv ON f.id = uv.feature_id AND uv.user_id = ?
 		GROUP BY f.id
 		ORDER BY vote_count DESC, f.created_at DESC
-	`)
+	`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list features: %w", err)
 	}
@@ -40,7 +44,7 @@ func (s *VotingStore) ListFeatures(ctx context.Context) ([]Feature, error) {
 	var features []Feature
 	for rows.Next() {
 		var f Feature
-		if err := rows.Scan(&f.ID, &f.Title, &f.Description, &f.CreatedBy, &f.CreatedAt, &f.VoteCount); err != nil {
+		if err := rows.Scan(&f.ID, &f.Title, &f.Description, &f.CreatedBy, &f.CreatedAt, &f.VoteCount, &f.Voted); err != nil {
 			return nil, fmt.Errorf("scan feature row: %w", err)
 		}
 		features = append(features, f)
@@ -53,16 +57,36 @@ func (s *VotingStore) ListFeatures(ctx context.Context) ([]Feature, error) {
 	return features, nil
 }
 
-// CreateFeature inserts a new feature and returns its generated ID.
+// CreateFeature inserts a new feature and auto-votes for the creator.
 // The createdBy parameter must be the OIDC `sub` claim, never
 // preferred_username or email, per PRIVACY_ASSESSMENT.md.
+// The author's implicit vote ensures vote_count is always >= 1.
 func (s *VotingStore) CreateFeature(ctx context.Context, id, title, description, createdBy string) error {
-	_, err := s.db.ExecContext(ctx,
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("create feature begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx,
 		`INSERT INTO voting_features (id, title, description, created_by) VALUES (?, ?, ?, ?)`,
 		id, title, description, createdBy,
 	)
 	if err != nil {
 		return fmt.Errorf("create feature: %w", err)
+	}
+
+	// Auto-vote: the creator implicitly supports their own feature.
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO voting_votes (feature_id, user_id) VALUES (?, ?)`,
+		id, createdBy,
+	)
+	if err != nil {
+		return fmt.Errorf("create feature auto-vote: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("create feature commit: %w", err)
 	}
 	return nil
 }

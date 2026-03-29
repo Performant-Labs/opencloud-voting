@@ -165,12 +165,11 @@ func TestListFeatures_WithVoteCounts(t *testing.T) {
 	mux, store := setupTestApp(t)
 
 	ctx := context.Background()
+	// CreateFeature auto-votes for the creator (user-a), so vote_count starts at 1.
 	if err := store.CreateFeature(ctx, "feat-1", "Feature One", "desc", "user-a"); err != nil {
 		t.Fatalf("setup: %v", err)
 	}
-	if _, err := store.ToggleVote(ctx, "feat-1", "user-a"); err != nil {
-		t.Fatalf("setup vote: %v", err)
-	}
+	// user-b also votes, bringing total to 2.
 	if _, err := store.ToggleVote(ctx, "feat-1", "user-b"); err != nil {
 		t.Fatalf("setup vote 2: %v", err)
 	}
@@ -188,6 +187,9 @@ func TestListFeatures_WithVoteCounts(t *testing.T) {
 	}
 	if resp.Features[0].VoteCount != 2 {
 		t.Errorf("expected 2 votes, got %d", resp.Features[0].VoteCount)
+	}
+	if !resp.Features[0].Voted {
+		t.Error("expected voted=true for user-a (auto-vote from creation)")
 	}
 }
 
@@ -260,16 +262,17 @@ func TestToggleVote_ConcurrentDuplicates(t *testing.T) {
 	wg.Wait()
 
 	// After 10 toggles (even number), the vote should NOT exist.
-	features, err := store.ListFeatures(ctx)
+	features, err := store.ListFeatures(ctx, "user-b")
 	if err != nil {
 		t.Fatalf("list features: %v", err)
 	}
 	if len(features) != 1 {
 		t.Fatalf("expected 1 feature, got %d", len(features))
 	}
-	// Vote count should be 0 or 1 — never more than 1.
-	if features[0].VoteCount > 1 {
-		t.Errorf("concurrent vote inflation detected: vote_count=%d (should be 0 or 1)", features[0].VoteCount)
+	// Author auto-vote = 1, plus user-b toggled 10 times (even = off).
+	// Vote count should be 1 (author only) or 2 (author + user-b) — never more.
+	if features[0].VoteCount > 2 {
+		t.Errorf("concurrent vote inflation detected: vote_count=%d (should be 1 or 2)", features[0].VoteCount)
 	}
 }
 
@@ -375,12 +378,9 @@ func TestDeleteUserData_RemovesAllData(t *testing.T) {
 
 	ctx := context.Background()
 
-	// User A creates a feature and votes on it.
+	// User A creates a feature (auto-votes for it).
 	if err := store.CreateFeature(ctx, "feat-1", "User A Feature", "desc", "user-a"); err != nil {
 		t.Fatalf("create feature: %v", err)
-	}
-	if _, err := store.ToggleVote(ctx, "feat-1", "user-a"); err != nil {
-		t.Fatalf("vote: %v", err)
 	}
 
 	// User B also votes on user A's feature.
@@ -394,7 +394,7 @@ func TestDeleteUserData_RemovesAllData(t *testing.T) {
 	}
 
 	// User A's feature should be gone, along with all votes on it.
-	features, err := store.ListFeatures(ctx)
+	features, err := store.ListFeatures(ctx, "user-a")
 	if err != nil {
 		t.Fatalf("list features: %v", err)
 	}

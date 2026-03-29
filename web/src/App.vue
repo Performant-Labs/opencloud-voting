@@ -118,11 +118,13 @@ onMounted(() => {
             <div class="fv-vote-block">
               <button
                 class="fv-vote-btn"
-                title="Vote"
+                :class="{ 'fv-voted-btn': feature.voted }"
+                :title="feature.voted ? 'Remove vote' : 'Vote'"
                 @click="toggleVote(feature.id)"
               >
                 <svg viewBox="0 0 24 24" width="18" height="18">
-                  <path d="M12 4l8 8H4z" />
+                  <path v-if="!feature.voted" d="M12 4l8 8H4z" />
+                  <path v-else d="M12 20l-8-8h16z" />
                 </svg>
               </button>
               <span class="fv-vote-count">{{ feature.vote_count }}</span>
@@ -333,7 +335,8 @@ onMounted(() => {
 .fv-vote-btn:active {
   transform: scale(0.92);
 }
-.fv-voted .fv-vote-btn {
+.fv-voted .fv-vote-btn,
+.fv-voted-btn {
   background: var(--oc-color-swatch-primary-default, #6366f1);
   color: #fff;
   border-color: var(--oc-color-swatch-primary-default, #6366f1);

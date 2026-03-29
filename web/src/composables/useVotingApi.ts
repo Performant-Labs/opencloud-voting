@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import type { Feature, FeatureWithVoted, FeatureListResponse, ErrorResponse } from '../types'
+import type { Feature, FeatureListResponse, ErrorResponse } from '../types'
 
 /**
  * Composable for the voting API using the Go sidecar backend.
@@ -18,7 +18,7 @@ export function useVotingApi(options?: {
 }) {
   const getToken = options?.accessToken
 
-  const features = ref<FeatureWithVoted[]>([])
+  const features = ref<Feature[]>([])
   const loading = ref(false)
   const submitting = ref(false)
   const error = ref<string | null>(null)
@@ -106,11 +106,10 @@ export function useVotingApi(options?: {
       }
 
       const data: FeatureListResponse = await res.json()
-      // The API doesn't track per-user voted status — we'll need to
-      // add that in a future iteration. For now, mark all as not voted.
+      // The API returns `voted` per feature based on the authenticated user.
       features.value = (data.features || []).map(f => ({
         ...f,
-        voted: false
+        voted: f.voted ?? false
       }))
     } catch (e) {
       error.value = (e as Error).message

@@ -5,9 +5,6 @@ export interface Feature {
   created_by: string
   created_at: string
   vote_count: number
-}
-
-export interface FeatureWithVoted extends Feature {
   voted: boolean
 }
 

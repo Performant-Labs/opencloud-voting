@@ -35,7 +35,8 @@ func (h *VotingHandler) RegisterRoutes(mux *http.ServeMux) {
 
 // listFeatures handles GET /api/voting/features (Step 510).
 func (h *VotingHandler) listFeatures(w http.ResponseWriter, r *http.Request) {
-	features, err := h.store.ListFeatures(r.Context())
+	userID := middleware.UserIDFromContext(r.Context())
+	features, err := h.store.ListFeatures(r.Context(), userID)
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, "ERR_INTERNAL", "failed to list features")
 		h.logger.Error().Err(err).Msg("list features failed")
