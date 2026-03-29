@@ -121,11 +121,23 @@ func (s *VotingStore) ToggleVote(ctx context.Context, featureID, userID string) 
 	}
 	defer tx.Rollback()
 
-	// Check if the feature exists.
-	var exists int
-	err = tx.QueryRowContext(ctx, `SELECT 1 FROM voting_features WHERE id = ?`, featureID).Scan(&exists)
+	// Check if the feature exists and who created it.
+	var createdBy string
+	err = tx.QueryRowContext(ctx, `SELECT created_by FROM voting_features WHERE id = ?`, featureID).Scan(&createdBy)
 	if err != nil {
 		return false, fmt.Errorf("toggle vote feature lookup: %w", err)
+	}
+
+	// The feature creator cannot remove their own vote — it's implicit.
+	if createdBy == userID {
+		// Check if they already have a vote (from auto-vote on creation).
+		var hasVote int
+		_ = tx.QueryRowContext(ctx, `SELECT 1 FROM voting_votes WHERE feature_id = ? AND user_id = ?`, featureID, userID).Scan(&hasVote)
+		if hasVote == 1 {
+			// Already voted as creator — no-op, return current state.
+			tx.Commit()
+			return true, nil
+		}
 	}
 
 	// Try to delete an existing vote first.
