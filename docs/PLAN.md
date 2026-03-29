@@ -55,10 +55,10 @@ Before writing datastore logic or user identity extraction routines in Go, we mu
 > [!WARNING]
 > **Submittability Constraint:** Verify that this implementation does **not create a new code path**. When handling OpenID Connect token authentication and rate limiting, we must directly re-use OpenCloud's established JWKs behavior and exclusively use the Go 1.22+ standard library `net/http` `ServeMux` rather than introducing third-party routers like `chi`, `Gin`, or `Fiber`.
 
-- **[ ] 410 - [NEW] `api/models.go`**: Define the Go structs for the voting endpoints, along with the SQLite schema creation utilizing **prefixed table names** to avoid multi-extension collision. *Must be rigorously compliant with the Phase 200 Privacy bindings*.
-- **[ ] 420 - [NEW] `api/middleware/auth.go`**: We will strictly **hook into OpenCloud's native authentication flow**. Instead of hardcoding JWT secrets, this Go middleware will dynamically fetch and validate the Bearer tokens against OpenCloud's specific oCIS `.well-known/openid-configuration` and `JWKs` (JSON Web Key Set) endpoints[^3]. 
-- **[ ] 430 - [NEW] `api/middleware/rate_limit.go`**: We will implement a standard library-compatible Token Bucket or memory-mapped middleware to apply our endpoint limits natively onto the Go 1.22 `ServeMux` without relying on `go-chi/httprate`.
-- **[ ] 440 - [TEST] `api/middleware/auth_test.go`**: Verify that missing, expired, or cryptographically invalid OpenCloud JWTs are rejected. Verify rate limiter triggers HTTP 429 after threshold.
+- **[x] 410 - [NEW] `api/models.go`**: Define the Go structs for the voting endpoints, along with the SQLite schema creation utilizing **prefixed table names** to avoid multi-extension collision. *Must be rigorously compliant with the Phase 200 Privacy bindings*.
+- **[x] 420 - [NEW] `api/middleware/auth.go`**: We will strictly **hook into OpenCloud's native authentication flow**. Instead of hardcoding JWT secrets, this Go middleware will dynamically fetch and validate the Bearer tokens against OpenCloud's specific oCIS `.well-known/openid-configuration` and `JWKs` (JSON Web Key Set) endpoints[^3]. 
+- **[x] 430 - [NEW] `api/middleware/rate_limit.go`**: We will implement a standard library-compatible Token Bucket or memory-mapped middleware to apply our endpoint limits natively onto the Go 1.22 `ServeMux` without relying on `go-chi/httprate`.
+- **[x] 440 - [TEST] `api/middleware/auth_test.go`**: Verify that missing, expired, or cryptographically invalid OpenCloud JWTs are rejected. Verify rate limiter triggers HTTP 429 after threshold.
 
 [^3]: **Why this Auth Pattern?** OpenCloud's gateway proxy natively handles initial OIDC flows. When routing traffic to sidecar extensions, it simply forwards the authenticated user's JWT. By verifying this JWT against OpenCloud's public internal JWKs endpoint, our sidecar cryptographically trusts the proxy without attempting to re-implement its own redundant OAuth2 handshake.
 

@@ -109,3 +109,29 @@ This document records every architectural decision, technical gap bridged, and d
 - **`proxy.yaml`**: Route follows the exact same pattern as the existing `radicale` routes (endpoint + backend, no custom middleware).
 - **`zerolog`**: JSON output on stdout with `service` field. Enterprise-compliant.
 
+---
+
+## Phase 400: Domain Models & OpenCloud Native Auth Middleware
+
+### 410 — Domain Models
+- **When**: 2026-03-29T13:52 PDT
+- **How**: Created `api/models.go` with `Feature`, `Vote`, `CreateFeatureRequest`, `ErrorResponse`, and `FeatureListResponse` structs.
+- **Why**: `CreatedBy` field explicitly documented as OIDC `sub`-only per `PRIVACY_ASSESSMENT.md` Section 3. `ErrorResponse.Code` uses machine-readable codes (e.g., `ERR_VOTE_DUPLICATE`) per `INTERNATIONALIZE.md` Section 2 — the Vue frontend maps these to `$gettext()` calls.
+
+### 420 — OIDC Auth Middleware
+- **When**: 2026-03-29T13:53 PDT
+- **How**: Created `api/middleware/auth.go` using `github.com/coreos/go-oidc/v3` for lazy OIDC provider discovery. Validates Bearer tokens against the issuer's JWKs endpoint. Extracts only the `sub` claim and injects it into `context.Context`.
+- **Why**: `go-oidc` is the Go ecosystem standard for OIDC and qualifies under the Ecosystem Exception clause. `SkipClientIDCheck: true` because the OpenCloud proxy already performed the full OAuth2 flow — we only verify signature and expiration.
+- **⚠️ Bug fixed**: Initial implementation used `sync.Once` with a reset trick for retryable discovery. This caused a fatal `sync: unlock of unlocked mutex` panic. Replaced with a `sync.Mutex` + `bool` pattern to safely allow retry when the OpenCloud container isn't ready at sidecar boot time.
+
+### 430 — Rate Limiter
+- **When**: 2026-03-29T13:53 PDT
+- **How**: Created `api/middleware/rate_limit.go` with a per-user token bucket algorithm using `sync.Mutex`. Keyed by the OIDC `sub` claim from context. Returns HTTP 429 with `ERR_RATE_LIMITED` error code.
+- **Why**: No third-party rate limiting packages (e.g., `go-chi/httprate`) per PLAN_INSTRUCTIONS.md. Per-user isolation prevents a single aggressive user from exhausting the API for everyone.
+
+### 440 — Middleware Tests
+- **When**: 2026-03-29T13:54 PDT
+- **How**: Created `api/middleware/auth_test.go` with 9 tests covering: missing header (401), malformed header (401), unreachable issuer (503), context extraction (empty and populated), burst allowance, over-burst rejection (429), per-user isolation, and unauthenticated passthrough.
+- **Tests**: All 9 PASS. Combined with Phase 300: 15/15 total tests pass.
+
+
