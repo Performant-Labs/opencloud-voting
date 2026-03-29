@@ -102,7 +102,7 @@ func main() {
 	signal.Notify(shutdownCh, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		slog.Info("voting-api server starting", "addr", server.Addr)
+		slog.Info("voting-app server starting", "addr", server.Addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("server listen failed", "error", err)
 			os.Exit(1)
@@ -120,7 +120,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	slog.Info("voting-api server stopped gracefully")
+	slog.Info("voting-app server stopped gracefully")
 }
 
 // openDatabase initializes the database connection.

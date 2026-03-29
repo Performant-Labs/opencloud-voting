@@ -18,5 +18,14 @@ All databases, logic domains, API endpoints, SQL tables, and component files **m
 - **Data Models**: `VotingFeatureModel`, `FeatureVoteEvent`
 - **API Interfaces**: `IVoteSubmissionPayload` instead of `Payload`
 
+### When Generic Suffixes Are Acceptable
+A contextual prefix **redeems** an otherwise-generic suffix. For example:
+- ❌ `app` — no context, could be anything
+- ❌ `api` — misleading if the service does more than serve API routes
+- ✅ `voting-app` — the `voting-` prefix provides full domain context
+- ✅ `feature-votes-store.sqlite` — `feature-votes-` prefix is unambiguous
+
+The key test: **could another extension in the same ecosystem collide with this name?** If yes, the name needs more context. If `voting-` is already unique within the OpenCloud extension galaxy, then `-app` is a perfectly valid suffix.
+
 ### The Enterprise Rationale
 Generic sprawl in enterprise microservice architecture transforms shared storage networks into collision disaster zones. For example, if multiple OpenCloud extensions attempt to mount or initialize a local file named `app.db`, catastrophic data overwriting and concurrency failures will instantly occur across the container orchestrator. Descriptive prefixing prevents domain crossover natively without requiring complex logical orchestration.
