@@ -6,9 +6,10 @@ Before generating code or executing this plan, you **MUST** adhere to the follow
    - Before completing your work, always run `go fmt` on any modified files to handle proper indentation and spacing.
    - Do not use clever "AI-isms" or heavily abstracted architectures. 
 
-2. **Standard Library Exclusivity**:
+2. **Standard Library Exclusivity (with Ecosystem Exceptions)**:
    - Use the Go 1.22+ standard library `servemux` for routing (`net/http`) and `html/template` for HTML views. 
    - **Do not** introduce external frameworks like Gin, Fiber, Vue, or React.
+   - **Exception:** When operating within a parent ecosystem (e.g., OpenCloud/oCIS), libraries that are established conventions in that ecosystem **must** be adopted over standard library equivalents. For example, oCIS uses `github.com/rs/zerolog` for structured logging — use `zerolog`, not `log/slog`.
 
 3. **Strict Error Handling**:
    - Never ignore errors with `_`. 

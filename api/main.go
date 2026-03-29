@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,24 +11,29 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
 	// ── Structured Logging (Step 350) ──────────────────────────────────
 	//
-	// Why log/slog with JSON?
-	// OpenCloud enterprise environments ingest container stdout through
-	// ELK (Elasticsearch/Logstash/Kibana) or Grafana Loki pipelines that
-	// expect structured JSON lines. Plain text logs are unparseable by
-	// these systems.
-	logLevel := slog.LevelInfo
+	// Why zerolog?
+	// OpenCloud/oCIS uses github.com/rs/zerolog as its standard structured
+	// logging library across all services and extensions. Using zerolog
+	// ensures our JSON log output is format-compatible with the existing
+	// ELK/Loki ingestion pipelines and matches oCIS code conventions for
+	// Tier-1 submittability.
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+
+	level := zerolog.InfoLevel
 	if os.Getenv("OC_LOG_LEVEL") == "debug" {
-		logLevel = slog.LevelDebug
+		level = zerolog.DebugLevel
 	}
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: logLevel,
-	}))
-	slog.SetDefault(logger)
+	zerolog.SetGlobalLevel(level)
+
+	logger := zerolog.New(os.Stdout).With().Timestamp().Str("service", "voting-app").Logger()
+	log.Logger = logger
 
 	// ── Database Initialization (Step 340) ─────────────────────────────
 	//
@@ -38,24 +42,23 @@ func main() {
 	// MariaDB cluster via OC_DB_URL. Standalone or dev environments have
 	// no such cluster, so we fall back to a local SQLite file with WAL
 	// mode for high-concurrency safety.
-	db, err := openDatabase()
+	db, err := openDatabase(logger)
 	if err != nil {
-		slog.Error("failed to initialize database", "error", err)
-		os.Exit(1)
+		logger.Fatal().Err(err).Msg("failed to initialize database")
 	}
 	defer db.Close()
 
 	if err := migrateSchema(context.Background(), db); err != nil {
-		slog.Error("failed to migrate database schema", "error", err)
-		os.Exit(1)
+		logger.Fatal().Err(err).Msg("failed to migrate database schema")
 	}
+	logger.Info().Msg("database schema verified")
 
 	// ── HTTP Server & Routing (Step 340) ───────────────────────────────
 	//
 	// Why Go 1.22 ServeMux?
-	// PLAN_INSTRUCTIONS.md mandates standard library exclusivity: no chi,
-	// Gin, or Fiber. Go 1.22's ServeMux supports method-based routing
-	// natively (e.g., "GET /path") which is sufficient for our needs.
+	// PLAN_INSTRUCTIONS.md mandates standard library exclusivity for
+	// routing: no chi, Gin, or Fiber. Go 1.22's ServeMux supports
+	// method-based routing natively (e.g., "GET /path").
 	mux := http.NewServeMux()
 
 	// Health & readiness probes (Step 550 placeholder)
@@ -102,33 +105,31 @@ func main() {
 	signal.Notify(shutdownCh, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		slog.Info("voting-app server starting", "addr", server.Addr)
+		logger.Info().Str("addr", server.Addr).Msg("voting-app server starting")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("server listen failed", "error", err)
-			os.Exit(1)
+			logger.Fatal().Err(err).Msg("server listen failed")
 		}
 	}()
 
 	sig := <-shutdownCh
-	slog.Info("shutdown signal received", "signal", sig.String())
+	logger.Info().Str("signal", sig.String()).Msg("shutdown signal received")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		slog.Error("graceful shutdown failed", "error", err)
-		os.Exit(1)
+		logger.Fatal().Err(err).Msg("graceful shutdown failed")
 	}
 
-	slog.Info("voting-app server stopped gracefully")
+	logger.Info().Msg("voting-app server stopped gracefully")
 }
 
 // openDatabase initializes the database connection.
 // It checks OC_DB_URL for an enterprise Postgres/MariaDB connection string.
 // If absent, it falls back to a local SQLite file at DB_PATH with WAL mode.
-func openDatabase() (*sql.DB, error) {
+func openDatabase(logger zerolog.Logger) (*sql.DB, error) {
 	if connStr := os.Getenv("OC_DB_URL"); connStr != "" {
-		slog.Info("connecting to external database", "driver", "postgres")
+		logger.Info().Str("driver", "postgres").Msg("connecting to external database")
 		return sql.Open("postgres", connStr)
 	}
 
@@ -137,7 +138,7 @@ func openDatabase() (*sql.DB, error) {
 		dbPath = "/data/feature-voting.sqlite"
 	}
 
-	slog.Info("using SQLite fallback", "path", dbPath)
+	logger.Info().Str("path", dbPath).Msg("using SQLite fallback")
 	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL&_busy_timeout=5000")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open sqlite: %w", err)
@@ -179,6 +180,5 @@ func migrateSchema(ctx context.Context, db *sql.DB) error {
 		return fmt.Errorf("failed to execute schema migration: %w", err)
 	}
 
-	slog.Info("database schema verified")
 	return nil
 }
