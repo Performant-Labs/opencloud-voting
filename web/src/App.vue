@@ -349,7 +349,6 @@ onMounted(() => {
 .fv-vote-disabled {
   opacity: 0.35;
   cursor: default;
-  pointer-events: none;
 }
 .fv-vote-count {
   font-weight: 700;
