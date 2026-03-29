@@ -14,6 +14,7 @@ const {
   submitting,
   error,
   total,
+  currentUserId,
   loadFeatures,
   createFeature,
   deleteFeature,
@@ -118,12 +119,16 @@ onMounted(() => {
             <div class="fv-vote-block">
               <button
                 class="fv-vote-btn"
-                :class="{ 'fv-voted-btn': feature.voted }"
-                :title="feature.voted ? 'Remove vote' : 'Vote'"
+                :class="{
+                  'fv-voted-btn': feature.voted && feature.created_by !== currentUserId,
+                  'fv-vote-disabled': feature.created_by === currentUserId
+                }"
+                :title="feature.created_by === currentUserId ? 'Your feature' : (feature.voted ? 'Remove vote' : 'Vote')"
+                :disabled="feature.created_by === currentUserId"
                 @click="toggleVote(feature.id)"
               >
                 <svg viewBox="0 0 24 24" width="18" height="18">
-                  <path v-if="!feature.voted" d="M12 4l8 8H4z" />
+                  <path v-if="feature.created_by === currentUserId || !feature.voted" d="M12 4l8 8H4z" />
                   <path v-else d="M12 20l-8-8h16z" />
                 </svg>
               </button>
@@ -340,6 +345,11 @@ onMounted(() => {
   background: var(--oc-color-swatch-primary-default, #6366f1);
   color: #fff;
   border-color: var(--oc-color-swatch-primary-default, #6366f1);
+}
+.fv-vote-disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
 }
 .fv-vote-count {
   font-weight: 700;

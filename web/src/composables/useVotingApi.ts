@@ -24,8 +24,8 @@ export function useVotingApi(options?: {
   const error = ref<string | null>(null)
   const total = computed(() => features.value.length)
 
-  // Current user ID extracted from the OIDC token (for voted status)
-  let currentUserId = ''
+  // Current user ID extracted from the OIDC token
+  const currentUserId = ref('')
 
   /**
    * Decode the JWT to extract the `sub` claim for local voted tracking.
@@ -33,18 +33,16 @@ export function useVotingApi(options?: {
    * for UI state (highlighting the user's own votes).
    */
   function getUserId(): string {
-    if (currentUserId) return currentUserId
+    if (currentUserId.value) return currentUserId.value
     const token = getToken?.()
     if (!token) return ''
     try {
       const payload = JSON.parse(atob(token.split('.')[1]))
-      // Use `sub` exclusively — never `preferred_username` or `email`
-      // per PRIVACY_ASSESSMENT.md Section 3.
-      currentUserId = payload.sub || ''
+      currentUserId.value = payload.sub || ''
     } catch {
-      currentUserId = ''
+      currentUserId.value = ''
     }
-    return currentUserId
+    return currentUserId.value
   }
 
   /**
@@ -98,6 +96,7 @@ export function useVotingApi(options?: {
   async function loadFeatures(): Promise<void> {
     loading.value = true
     error.value = null
+    getUserId() // Ensure currentUserId is populated for template comparisons
     try {
       const res = await apiRequest('/features')
       if (!res.ok) {
@@ -204,6 +203,7 @@ export function useVotingApi(options?: {
     submitting,
     error,
     total,
+    currentUserId,
     loadFeatures,
     createFeature,
     deleteFeature,
