@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import type { Feature, FeatureWithVoted, FeatureListResponse, ErrorResponse } from '../types'
 
 /**
  * Composable for the voting API using the Go sidecar backend.
@@ -11,29 +12,6 @@ import { ref, computed } from 'vue'
  * No direct fetch() calls — all requests use the authenticated
  * helper that injects the Bearer token from the OpenCloud auth store.
  */
-
-export interface Feature {
-  id: string
-  title: string
-  description: string
-  created_by: string
-  created_at: string
-  vote_count: number
-}
-
-export interface FeatureWithVoted extends Feature {
-  voted: boolean
-}
-
-export interface FeatureListResponse {
-  features: Feature[]
-  total: number
-}
-
-export interface ErrorResponse {
-  error_code: string
-  message: string
-}
 
 export function useVotingApi(options?: {
   accessToken?: () => string | undefined
