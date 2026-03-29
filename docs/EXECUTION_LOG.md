@@ -65,15 +65,17 @@ This document records every architectural decision, technical gap bridged, and d
 - **When**: 2026-03-29T13:23 PDT
 - **How**: Alpine multi-stage: Stage 1 uses `golang:1.26-alpine` with `gcc`/`musl-dev` for CGO (required by `mattn/go-sqlite3`). Stage 2 copies only the compiled binary into `alpine:3.21`.
 - **Why**: CGO is mandatory because SQLite requires C bindings. The multi-stage build keeps the runtime image minimal (~15MB) vs the ~800MB build image.
-- **Decision**: Named the binary `voting-api` (not generic `app` or `server`) per NAMING.md conventions.
+- **Decision**: Named the binary `voting-app` (not generic `app` or `server`) per NAMING.md conventions.
+- **⚠️ Correction (13:29 PDT)**: Originally named `voting-api`, but the sidecar is a full application (DB, health probes, metrics, graceful shutdown), not just an API layer. Renamed to `voting-app`. Updated `NAMING.md` with "contextual prefix redeems generic suffix" rule.
 
 ### 330 — Infrastructure Wiring
 - **When**: 2026-03-29T13:23 PDT
 - **How**: 
-  - `docker-compose.yml`: Added `voting-api` service on `opencloud-net` with zero host port exposure. Created dedicated `voting-data` Docker volume mounted at `/data`.
-  - `proxy.yaml`: Added route `endpoint: /api/voting/` → `backend: http://voting-api:8080` under the existing `default` policy.
-- **Why**: Zero host ports means the sidecar is physically unreachable without traversing the OpenCloud authentication proxy. The proxy forwards the OIDC access token automatically. Used `voting-data` (not `opencloud-extensions-data`) for complete data isolation per NAMING.md.
-- **Decision**: The `build.context` points to `../opencloud-voting/api` (relative sibling path) rather than embedding the Go code inside `pl-opencloud-server`. This maintains clean repository separation.
+  - `docker-compose.yml`: Added `voting-app` service on `opencloud-net` with zero host port exposure. Created `shared-data` Docker volume mounted at `/data`.
+  - `proxy.yaml`: Added route `endpoint: /api/voting/` → `backend: http://voting-app:8080` under the existing `default` policy.
+- **Why**: Zero host ports means the sidecar is physically unreachable without traversing the OpenCloud authentication proxy. The proxy forwards the OIDC access token automatically.
+- **Decision**: `pl-opencloud-server` changes live on branch `aa/voting-sidecar`, not `main`. Commits go only to `opencloud-voting`.
+- **⚠️ Correction (13:32 PDT)**: Originally created a dedicated `voting-data` volume. Renamed to `shared-data` so other OpenCloud extensions can share the same mount point, each writing their own contextually-named SQLite file (e.g., `feature-voting.sqlite`, `registration.sqlite`).
 
 ### 340 — main.go HTTP Server & Database
 - **When**: 2026-03-29T13:24 PDT
@@ -83,17 +85,27 @@ This document records every architectural decision, technical gap bridged, and d
 
 ### 350 — Structured Logging
 - **When**: 2026-03-29T13:24 PDT
-- **How**: `slog.NewJSONHandler(os.Stdout, ...)` with level controlled by `OC_LOG_LEVEL` env var. Set as the default logger via `slog.SetDefault()`.
-- **Why**: JSON stdout is the only format compatible with OpenCloud's ELK/Loki ingestion pipelines.
+- **⚠️ Correction (13:40 PDT)**: Originally implemented with Go standard library `log/slog`. Research revealed OpenCloud/oCIS uses `github.com/rs/zerolog` across all services. Refactored to `zerolog` for Tier-1 submittability.
+- **How**: `zerolog.New(os.Stdout).With().Timestamp().Str("service","voting-app").Logger()` with level controlled by `OC_LOG_LEVEL` env var.
+- **Why**: `zerolog` is the established convention in the oCIS ecosystem. Using `slog` would make our code structurally alien during upstream code review.
+- **Decision**: Updated `ai_guidance/projects/opencloud/PLAN_INSTRUCTIONS.md` Rule 2 to add an "Ecosystem Exception" clause — parent ecosystem libraries take precedence over standard library equivalents. Pushed to `ai_guidance` remote.
 
 ### 360 — Graceful Shutdown
 - **When**: 2026-03-29T13:24 PDT
 - **How**: Traps `SIGINT`/`SIGTERM` via `signal.Notify`, then calls `server.Shutdown(ctx)` with a 15-second deadline to drain connections.
 - **Why**: Abrupt container kills during pod scale-down corrupt SQLite WAL journals and cause client 502s.
 
+### 370 — Phase 300 Unit Tests
+- **When**: 2026-03-29T13:44 PDT
+- **How**: Created `api/main_test.go` with 6 tests using `net/http/httptest` and temporary SQLite databases (`t.TempDir()`).
+- **Why**: PLAN restructured to embed tests within each code phase (TDD discipline). Monolithic Phase 600 repurposed as a coverage gate.
+- **Tests**: `TestSQLiteWALMode`, `TestMigrateSchema_Idempotent`, `TestMigrateSchema_DuplicateVotePrevented`, `TestMigrateSchema_CascadeDeleteVotes`, `TestHealthzEndpoint`, `TestReadyzEndpoint` — all 6 PASS (0.272s).
+
 ### Post-Phase Submittability Verification
 - **`go build`**: Compiles cleanly with zero errors.
 - **`go fmt`**: No formatting changes required.
-- **`docker-compose.yml`**: No host ports exposed on `voting-api`. Uses `opencloud-net` internal networking only.
+- **`go test -v -count=1 ./...`**: 6/6 tests pass.
+- **`docker-compose.yml`**: No host ports exposed on `voting-app`. Uses `opencloud-net` internal networking only.
 - **`proxy.yaml`**: Route follows the exact same pattern as the existing `radicale` routes (endpoint + backend, no custom middleware).
-- **`log/slog`**: JSONHandler configured on stdout. Enterprise-compliant.
+- **`zerolog`**: JSON output on stdout with `service` field. Enterprise-compliant.
+
