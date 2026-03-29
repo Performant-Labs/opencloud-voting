@@ -131,42 +131,52 @@ Before writing datastore logic or user identity extraction routines in Go, we mu
 
 ---
 
-## Phase 900: Automated E2E Testing & Load Testing
+## Phase 900: Automated E2E Testing
 > [!WARNING]
 > **Submittability Constraint:** Verify that this implementation does **not create a new code path**. The E2E tests must pass inside the standard environment bounds without requiring special browser flags or out-of-band proxy tweaks.
 
 - **[ ] 910 - [PLAYWRIGHT & ACCESSIBILITY]**: Automate the Phase 800 smoke test with Playwright. Integrate `@axe-core/playwright` into the global assertions, forcing Playwright to actively scan the Vue DOM during testing to identify missing `aria-labels` and WCAG compliance faults.
-- **[ ] 920 - [PROVISION]**: Write a lightweight script to dynamically create 50 unique test users in the local OpenCloud instance via the Graph API and extract their valid JWT Bearer tokens to a `.env.test` file.
-- **[ ] 930 - [LOAD TEST: THRESHOLD ASSURANCE]**: Utilize the modern Go load tester `hey` against the `/api/voting/features/{id}/vote` endpoint using the generated API tokens. We will configure `hey` to fire 500 concurrent requests across the users. **Goal:** Absolute 0% error rate with <500ms P95 latency limit to prove standard production readiness against "Thundering Herds".
-- **[ ] 940 - [LOAD TEST: DEGRADATION]**: We will turn the dial up on `hey` exponentially (e.g. 5,000 spikes over 2 seconds) explicitly to measure the elasticity of the SQLite WAL queue. **Goal:** Latency should increase significantly as queries line up, but zero structural failures (e.g. `database is locked`) should occur.
-- **[ ] 950 - [TEARDOWN]**: Re-invoke the Graph API script to cleanly delete all 50 temporary test users from OpenCloud.
+
+**[VERIFY SUBMITTABILITY POST-PHASE]**: The Playwright suite must reproduce the Phase 800 smoke test results automatically and catch WCAG accessibility violations.
+
+---
+
+## Phase 1000: Concurrency & Load Testing
+> [!WARNING]
+> **Submittability Constraint:** Verify that this implementation does **not create a new code path**. Load tests must use the standard OpenCloud Graph API for user provisioning and the standard `hey` load tester without custom tooling.
+
+- **[ ] 1010 - [PROVISION]**: Write a lightweight script to dynamically create 50 unique test users in the local OpenCloud instance via the Graph API and extract their valid JWT Bearer tokens to a `.env.test` file.
+- **[ ] 1020 - [LOAD TEST: THRESHOLD ASSURANCE]**: Utilize the modern Go load tester `hey` against the `/api/voting/features/{id}/vote` endpoint using the generated API tokens. We will configure `hey` to fire 500 concurrent requests across the users. **Goal:** Absolute 0% error rate with <500ms P95 latency limit to prove standard production readiness against "Thundering Herds".
+- **[ ] 1030 - [LOAD TEST: DEGRADATION]**: We will turn the dial up on `hey` exponentially (e.g. 5,000 spikes over 2 seconds) explicitly to measure the elasticity of the SQLite WAL queue. **Goal:** Latency should increase significantly as queries line up, but zero structural failures (e.g. `database is locked`) should occur.
+- **[ ] 1040 - [TEARDOWN]**: Re-invoke the Graph API script to cleanly delete all 50 temporary test users from OpenCloud.
 
 **[VERIFY SUBMITTABILITY POST-PHASE]**: The load test results must prove our SQLite concurrency tuning passes enterprise standards for OpenCloud without custom container scaling logic.
 
 ---
 
-## Phase 1000: Project Internal Documentation
+## Phase 1100: Project Internal Documentation
 > [!WARNING]
 > **Submittability Constraint:** Verify that this implementation does **not create a new code path**. Architectural decisions added to `ARCHITECTURE.md` must accurately reflect why standard microservice patterns were chosen and why custom WebDAV patterns were rejected.
 
-- **[ ] 1010 - [MODIFY] `README.md`**: Update the infrastructure diagram and quick-start instructions to include the Go building process.
-- **[ ] 1020 - [MODIFY] `docs/ARCHITECTURE.md`**: Add a new addendum overriding the previous decision, documenting exactly why WebDAV was abandoned for security reasons.
+- **[ ] 1110 - [MODIFY] `README.md`**: Update the infrastructure diagram and quick-start instructions to include the Go building process.
+- **[ ] 1120 - [MODIFY] `docs/ARCHITECTURE.md`**: Add a new addendum overriding the previous decision, documenting exactly why WebDAV was abandoned for security reasons.
 
 **[VERIFY SUBMITTABILITY POST-PHASE]**: The final review of `ARCHITECTURE.md` must accurately detail exactly how these Go microservices align natively with upstream oCIS design.
 
 ---
 
-## Phase 1100: CI/CD & Final Whitehat Audit
-- **[ ] 1110 - [CI]**: Build and publish API Docker image to GHCR and verify GitHub Actions handle testing/linting using OpenCloud conventions.
-- **[ ] 1120 - [AUDIT]**: Actively verify that the documented theoretical mitigations (Auth Middleware validation, SQLite WAL load handling, Submittability constraints) behave exactly as intended in a live penetration test.
-- **[ ] 1130 - [UPDATE]**: Refresh `docs/SECURITY_ASSESSMENT.md` with hard evidence and live findings, certifying the application stack officially clear for main-repo submission.
+## Phase 1200: CI/CD & Final Whitehat Audit
+- **[ ] 1210 - [CI]**: Build and publish API Docker image to GHCR and verify GitHub Actions handle testing/linting using OpenCloud conventions.
+- **[ ] 1220 - [AUDIT]**: Actively verify that the documented theoretical mitigations (Auth Middleware validation, SQLite WAL load handling, Submittability constraints) behave exactly as intended in a live penetration test.
+- **[ ] 1230 - [UPDATE]**: Refresh `docs/SECURITY_ASSESSMENT.md` with hard evidence and live findings, certifying the application stack officially clear for main-repo submission.
 
 ---
 
-## Phase 1200: [OPTIONAL] OSS-PREY & Deep Dependency EOL Audit
+## Phase 1300: [OPTIONAL] OSS-PREY & Deep Dependency EOL Audit
 Because extensive supply-chain vitality tooling requires complex local configuration (e.g., GitHub API tokens to measure commit frequency, and Python environment setups for the CLI), this phase is explicitly designated as **optional** and is executed strictly at the very end of the lifecycle so it does not block functional delivery and End-to-End browser verifications.
-- **[ ] 1210 - [EOL DISCOVERY]**: Utilize **OSS-PREY** (https://oss-prey.github.io/OSSPREY-Website/) to conduct a deep-dive End-of-Life audit on our dependency tree. OSS-PREY specializes in evaluating the maintenance status and community vitality of open-source packages, explicitly flagging components that are quietly abandoned or lack an active lifecycle.
-- **[ ] 1220 - [GO BACKEND]**: Run `govulncheck` to statically analyze the compiled Go sidecar for known CVE vulnerabilities and deprecated standard library hooks.
-- **[ ] 1230 - [FRONTEND]**: Run `pnpm audit` in the `web/` directory to hunt for high-severity supply chain faults.
-- **[ ] 1240 - [CONTAINER STACK]**: Run `trivy` (Aqua Security) against the full project repository and `api/Dockerfile`. Trivy analyzes Alpine base images and multi-language repositories for unpatched container vulnerabilities.
+- **[ ] 1310 - [EOL DISCOVERY]**: Utilize **OSS-PREY** (https://oss-prey.github.io/OSSPREY-Website/) to conduct a deep-dive End-of-Life audit on our dependency tree. OSS-PREY specializes in evaluating the maintenance status and community vitality of open-source packages, explicitly flagging components that are quietly abandoned or lack an active lifecycle.
+- **[ ] 1320 - [GO BACKEND]**: Run `govulncheck` to statically analyze the compiled Go sidecar for known CVE vulnerabilities and deprecated standard library hooks.
+- **[ ] 1330 - [FRONTEND]**: Run `pnpm audit` in the `web/` directory to hunt for high-severity supply chain faults.
+- **[ ] 1340 - [CONTAINER STACK]**: Run `trivy` (Aqua Security) against the full project repository and `api/Dockerfile`. Trivy analyzes Alpine base images and multi-language repositories for unpatched container vulnerabilities.
+
 
