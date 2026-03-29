@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useAuthStore } from '@opencloud-eu/web-pkg'
 import { useVotingApi } from './composables/useVotingApi'
 
@@ -15,9 +15,11 @@ const {
   error,
   total,
   currentUserId,
+  isAdmin,
   loadFeatures,
   createFeature,
   deleteFeature,
+  archiveFeature,
   toggleVote,
   dismissError
 } = useVotingApi({ accessToken: getAccessToken })
@@ -25,6 +27,23 @@ const {
 const newTitle = ref('')
 const newDescription = ref('')
 const formError = ref('')
+
+const openMenuId = ref<string | null>(null)
+
+function toggleMenu(id: string) {
+  openMenuId.value = openMenuId.value === id ? null : id
+}
+
+function closeAllMenus() {
+  openMenuId.value = null
+}
+
+function handleClickOutside(event: MouseEvent) {
+  const target = event.target as HTMLElement
+  if (!target.closest('.fv-actions')) {
+    closeAllMenus()
+  }
+}
 
 async function handleSubmit() {
   formError.value = ''
@@ -44,8 +63,14 @@ async function handleSubmit() {
 }
 
 async function handleDelete(id: string) {
+  closeAllMenus()
   if (!confirm('Delete this feature request?')) return
   await deleteFeature(id)
+}
+
+async function handleArchive(id: string) {
+  closeAllMenus()
+  await archiveFeature(id)
 }
 
 function formatDate(dateStr: string): string {
@@ -54,6 +79,11 @@ function formatDate(dateStr: string): string {
 
 onMounted(() => {
   loadFeatures()
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
@@ -143,13 +173,38 @@ onMounted(() => {
               </small>
             </div>
 
-            <button
-              class="fv-delete-btn"
-              title="Delete"
-              @click="handleDelete(feature.id)"
-            >
-              &#x2715;
-            </button>
+            <div v-if="isAdmin" class="fv-actions">
+              <button
+                class="fv-actions-trigger"
+                :title="'Actions'"
+                @click.stop="toggleMenu(feature.id)"
+              >
+                &#x22EF;
+              </button>
+              <div
+                v-if="openMenuId === feature.id"
+                class="fv-actions-menu"
+              >
+                <ul>
+                  <li>
+                    <button class="fv-action-item" @click="handleArchive(feature.id)">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <path d="M20 2H4c-1.1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-.9-2-2-2zm-5 12H9v-2h6v2zm5-7H4V4h16v3z"/>
+                      </svg>
+                      Archive
+                    </button>
+                  </li>
+                  <li>
+                    <button class="fv-action-item fv-action-danger" @click="handleDelete(feature.id)">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                      </svg>
+                      Delete
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </div>
           </li>
         </ul>
       </template>
@@ -378,25 +433,90 @@ onMounted(() => {
   font-size: 0.8rem;
 }
 
-/* Delete button */
-.fv-delete-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--oc-color-text-muted, #6b7280);
-  font-size: 1rem;
-  padding: 4px;
-  border-radius: 6px;
-  line-height: 1;
+/* Actions three-dot menu */
+.fv-actions {
+  position: relative;
   flex-shrink: 0;
   align-self: flex-start;
-  opacity: 0;
-  transition: opacity 0.15s, color 0.15s;
 }
-.fv-item:hover .fv-delete-btn {
+.fv-actions-trigger {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--oc-color-text-muted, #6b7280);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  padding: 2px 6px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s, border-color 0.15s;
+}
+.fv-item:hover .fv-actions-trigger,
+.fv-actions-trigger[aria-expanded="true"] {
   opacity: 1;
 }
-.fv-delete-btn:hover {
+.fv-actions-trigger:hover {
+  color: var(--oc-color-text-default, #111827);
+  background: var(--oc-color-background-muted, #f3f4f6);
+  border-color: var(--oc-color-border, #d1d5db);
+}
+
+.fv-actions-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 100;
+  min-width: 160px;
+  margin-top: 4px;
+  background: var(--oc-color-background-default, #fff);
+  border: 1px solid var(--oc-color-border, #e5e7eb);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+  padding: 4px;
+  animation: fv-menu-enter 0.12s ease-out;
+}
+@keyframes fv-menu-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.fv-actions-menu ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.fv-action-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--oc-color-text-default, #111827);
+  text-align: left;
+  transition: background 0.12s, color 0.12s;
+}
+.fv-action-item:hover {
+  background: var(--oc-color-background-muted, #f3f4f6);
+}
+.fv-action-danger {
   color: var(--oc-color-swatch-danger-default, #ef4444);
+}
+.fv-action-danger:hover {
+  background: var(--oc-color-swatch-danger-muted, #fef2f2);
 }
 </style>

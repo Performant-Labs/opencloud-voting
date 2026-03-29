@@ -26,6 +26,7 @@ export function useVotingApi(options?: {
 
   // Current user ID extracted from the OIDC token
   const currentUserId = ref('')
+  const isAdmin = ref(false)
 
   /**
    * Decode the JWT to extract the `sub` claim for local voted tracking.
@@ -39,8 +40,30 @@ export function useVotingApi(options?: {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]))
       currentUserId.value = payload.sub || ''
+
+      const roles: string[] =
+        payload.roles ||
+        payload.realm_access?.roles ||
+        payload.groups ||
+        []
+
+      // Local development fallback: trust the 'admin' username
+      // In oCIS tokens, this is often inside `lg.i.un`.
+      const isNamedAdmin =
+        payload.un === 'admin' ||
+        payload['lg.i']?.un === 'admin' ||
+        payload.preferred_username === 'admin' ||
+        payload.sub === 'admin' ||
+        payload.nickname === 'admin'
+
+      isAdmin.value =
+        isNamedAdmin ||
+        roles.some(
+          (r: string) => r.toLowerCase() === 'admin' || r.toLowerCase() === 'administrator'
+        )
     } catch {
       currentUserId.value = ''
+      isAdmin.value = false
     }
     return currentUserId.value
   }
@@ -170,6 +193,23 @@ export function useVotingApi(options?: {
   }
 
   /**
+   * Archive a feature (stub — API endpoint not yet implemented).
+   * Returns true to indicate the UI should treat the action as successful.
+   */
+  async function archiveFeature(id: string): Promise<boolean> {
+    error.value = null
+    try {
+      // TODO: Call `/features/${id}/archive` once the API supports it.
+      // For now, remove it from the local list to give immediate feedback.
+      features.value = features.value.filter(f => f.id !== id)
+      return true
+    } catch (e) {
+      error.value = (e as Error).message
+      return false
+    }
+  }
+
+  /**
    * Toggle vote on a feature.
    */
   async function toggleVote(featureId: string): Promise<boolean> {
@@ -204,9 +244,11 @@ export function useVotingApi(options?: {
     error,
     total,
     currentUserId,
+    isAdmin,
     loadFeatures,
     createFeature,
     deleteFeature,
+    archiveFeature,
     toggleVote,
     dismissError
   }
