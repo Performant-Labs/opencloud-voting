@@ -79,6 +79,17 @@ func (h *VotingHandler) createFeature(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	exists, err := h.store.FeatureExists(r.Context(), req.Title)
+	if err != nil {
+		h.respondError(w, http.StatusInternalServerError, "ERR_INTERNAL", "failed to check feature existence")
+		h.logger.Error().Err(err).Msg("feature existence check failed")
+		return
+	}
+	if exists {
+		h.respondError(w, http.StatusConflict, "ERR_TITLE_EXISTS", "A feature with this exact name already exists. Please vote for the existing one instead.")
+		return
+	}
+
 	id, err := generateID()
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, "ERR_INTERNAL", "failed to generate ID")

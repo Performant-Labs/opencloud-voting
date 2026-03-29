@@ -57,6 +57,19 @@ func (s *VotingStore) ListFeatures(ctx context.Context, userID string) ([]Featur
 	return features, nil
 }
 
+// FeatureExists checks if a feature with the given name already exists (case-insensitive).
+func (s *VotingStore) FeatureExists(ctx context.Context, title string) (bool, error) {
+	var exists int
+	err := s.db.QueryRowContext(ctx, "SELECT 1 FROM voting_features WHERE LOWER(title) = LOWER(?)", title).Scan(&exists)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("feature exists check: %w", err)
+	}
+	return exists == 1, nil
+}
+
 // CreateFeature inserts a new feature and auto-votes for the creator.
 // The createdBy parameter must be the OIDC `sub` claim, never
 // preferred_username or email, per PRIVACY_ASSESSMENT.md.
