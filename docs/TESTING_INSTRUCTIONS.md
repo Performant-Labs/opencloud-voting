@@ -6,18 +6,25 @@ This document formalizes the methodology for testing and verifying OpenCloud fro
 
 Before executing tests, your environment must be initialized to serve as a proper test harness. The test harness relies on a live OpenCloud backend and the Playwright browser automation framework.
 
-1. **Install Dependencies:**
-   Ensure you have installed all necessary node modules and the Playwright browsers required to run the automated tests.
+1. **Verify Environment Configuration (Automated):**
+   We provide a fully automated script `./web/scripts/run_e2e_tests.sh` that actively checks the configuration and reaches out to `cloud.opencloud.test` to verify 100% readiness. Run it first to see if your harness is already healthy:
+   ```bash
+   ./web/scripts/run_e2e_tests.sh
+   ```
+   If it starts running tests and passes the pre-flight checks, your test harness is properly set up and you can skip the following steps.
+
+2. **Install Dependencies (If needed):**
+   If the tests or scripts complain about missing modules, ensure you have installed all necessary node modules and the Playwright browsers required to run the automated tests.
    ```bash
    pnpm install
    pnpm exec playwright install
    ```
 
-2. **Start the OpenCloud Stack:**
-   Ensure that your local OpenCloud environment (`pl-opencloud-server`) is actively running. This serves as the remote backend for Graph API calls and WebDAV storage during the tests.
+3. **Start the OpenCloud Stack (If needed):**
+   If the pre-flight check indicated the stack is unreachable, ensure that your local OpenCloud environment (`pl-opencloud-server`) is actively running. This serves as the remote backend for Graph API calls and WebDAV storage during the tests.
 
-3. **Verify Environment Configuration (Automated):**
-   We provide a fully automated script `./web/scripts/run_e2e_tests.sh` that actively checks the configuration and reaches out to `cloud.opencloud.test` to verify 100% readiness.
+4. **Re-Verify Health:**
+   Once the stack is running or dependencies are installed, re-run `./web/scripts/run_e2e_tests.sh` to ensure the E2E tests can now connect.
 
 ---
 

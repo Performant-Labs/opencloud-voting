@@ -18,7 +18,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture decis
 │  │    WebDAV fetch()           │  │
 │  │         ▼                   │  │
 │  │  Personal Space             │  │
-│  │  /.feature-voting/data.json │  │
+│  │  /.feature-voting/feature-votes.json │  │
 │  └─────────────────────────────┘  │
 └───────────────────────────────────┘
 ```
@@ -64,7 +64,7 @@ For development with `pl-opencloud-server`, the built extension is automatically
 
 ## Data Model
 
-All voting data is stored in a single JSON file at `~/.feature-voting/data.json` in the user's personal OpenCloud space:
+All voting data is stored in a single JSON file at `~/.feature-voting/feature-votes.json` in the user's personal OpenCloud space:
 
 ```json
 {

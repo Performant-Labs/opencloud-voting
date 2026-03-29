@@ -1,17 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useAuthStore } from '@opencloud-eu/web-pkg'
 import { useVotingApi } from './composables/useVotingApi'
 
-// Import the auth store to get the OIDC access token.
-// The token is used for authenticated WebDAV requests.
-let getAccessToken: (() => string | undefined) | undefined
-try {
-  const { useAuthStore } = await import('@opencloud-eu/web-pkg')
-  const authStore = useAuthStore()
-  getAccessToken = () => (authStore as any).accessToken
-} catch {
-  // Running outside OpenCloud Web (standalone dev) — no token available.
-}
+// Get the OIDC access token from the OpenCloud auth store.
+// This token is used for authenticated WebDAV requests.
+const authStore = useAuthStore()
+const getAccessToken = () => (authStore as any).accessToken
 
 const {
   features,
@@ -23,7 +18,8 @@ const {
   createFeature,
   deleteFeature,
   toggleVote,
-  dismissError
+  dismissError,
+  spaceIdRef
 } = useVotingApi({ accessToken: getAccessToken })
 
 const newTitle = ref('')
@@ -62,7 +58,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="fv-container">
+  <div class="fv-container" :data-space-id="spaceIdRef">
     <header class="fv-header">
       <h1>Feature Voting</h1>
       <p class="fv-subtitle">Submit ideas and vote for the features you want most.</p>
@@ -89,6 +85,7 @@ onMounted(() => {
           v-model="newDescription"
           placeholder="Describe the feature (optional)"
           rows="3"
+          maxlength="2000"
           class="fv-textarea"
           :disabled="submitting"
         />

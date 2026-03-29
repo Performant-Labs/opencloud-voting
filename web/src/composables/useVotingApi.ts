@@ -5,15 +5,19 @@ import type { Feature, FeatureWithVoted, VotingData } from '../types'
  * Composable for the voting API using OpenCloud WebDAV storage.
  *
  * All voting data is stored as a single JSON file in the user's personal
- * space at `.feature-voting/data.json`. The file is read/written via
+ * space at `.feature-voting/feature-votes.json`. The file is read/written via
  * authenticated WebDAV requests using the OIDC session.
+ *
+ * OpenCloud (oCIS) uses the Spaces WebDAV API:
+ *   1. Discover the personal space ID via GET /graph/v1beta1/me/drives
+ *   2. Access files via /dav/spaces/{spaceId}/path
  *
  * Concurrency: uses ETag-based optimistic locking on writes.
  * If a conflict occurs (HTTP 412), the data is re-read and the
  * operation is retried once.
  */
 
-const DATA_PATH = '.feature-voting/data.json'
+const DATA_PATH = 'feature-votes.json'
 
 function emptyData(): VotingData {
   return { features: [], votes: {} }
@@ -34,23 +38,15 @@ export function useVotingApi(options?: {
   const error = ref<string | null>(null)
   const total = computed(() => features.value.length)
 
-  // Current user ID extracted from the OIDC token
+  // Current user ID extracted from the OIDC token (for vote tracking)
   let currentUserId = ''
+
+  // Cached personal space ID from the Graph API
+  const spaceIdRef = ref('')
+  let cachedSpaceId = ''
 
   // ETag for optimistic concurrency
   let currentETag = ''
-
-  /**
-   * Build the WebDAV URL for the voting data file.
-   * Uses /remote.php/dav/files/{username}/ which is the standard WebDAV path.
-   */
-  function davUrl(username: string): string {
-    return `/remote.php/dav/files/${username}/${DATA_PATH}`
-  }
-
-  function davFolderUrl(username: string): string {
-    return `/remote.php/dav/files/${username}/.feature-voting/`
-  }
 
   function authHeaders(): Record<string, string> {
     const headers: Record<string, string> = {}
@@ -79,11 +75,56 @@ export function useVotingApi(options?: {
   }
 
   /**
+   * Discover the shared Project Space ID via the OpenCloud Graph API.
+   * Looks for a drive named "Feature Voting Data" with driveType "project".
+   * Result is cached after first call.
+   */
+  async function getSharedSpaceId(): Promise<string> {
+    if (cachedSpaceId) return cachedSpaceId
+
+    const res = await fetch('/graph/v1.0/drives', {
+      method: 'GET',
+      headers: {
+        ...authHeaders(),
+        'Accept': 'application/json'
+      }
+    })
+
+    if (!res.ok) {
+      throw new Error(`Failed to read available spaces: ${res.status} ${res.statusText}`)
+    }
+
+    const data = await res.json()
+    const drives = data.value || data
+    const sharedSpaces = Array.isArray(drives)
+      ? drives.filter((d: any) => d.driveType === 'project' && d.name.startsWith('Feature Voting Data'))
+      : []
+
+    // Take the most recent one by sorting alphabetically (timestamp is at the end)
+    const sharedSpace = sharedSpaces.sort((a, b) => b.name.localeCompare(a.name))[0]
+
+    if (!sharedSpace?.id) {
+      throw new Error("The Feature Voting Data project space has not been configured. Please ask your administrator to create a project space named 'Feature Voting Data' and grant access to all users.")
+    }
+
+    cachedSpaceId = sharedSpace.id
+    spaceIdRef.value = cachedSpaceId
+    return cachedSpaceId
+  }
+
+  /**
+   * Build the WebDAV URL for the voting data file using the Spaces API.
+   */
+  function davUrl(spaceId: string): string {
+    return `/dav/spaces/${spaceId}/${DATA_PATH}`
+  }
+
+  /**
    * Read the voting data file. Returns empty data if the file doesn't exist.
    */
   async function readData(): Promise<VotingData> {
-    const username = getUserId()
-    const res = await fetch(davUrl(username), {
+    const spaceId = await getSharedSpaceId()
+    const res = await fetch(davUrl(spaceId), {
       method: 'GET',
       headers: {
         ...authHeaders(),
@@ -114,7 +155,7 @@ export function useVotingApi(options?: {
    * Uses If-Match header for optimistic concurrency.
    */
   async function writeData(data: VotingData, retry = true): Promise<void> {
-    const username = getUserId()
+    const spaceId = await getSharedSpaceId()
     const body = JSON.stringify(data, null, 2)
 
     const headers: Record<string, string> = {
@@ -127,22 +168,11 @@ export function useVotingApi(options?: {
       headers['If-Match'] = currentETag
     }
 
-    const res = await fetch(davUrl(username), {
+    const res = await fetch(davUrl(spaceId), {
       method: 'PUT',
       headers,
       body
     })
-
-    // 409 = parent folder doesn't exist → create it and retry
-    if (res.status === 409) {
-      await fetch(davFolderUrl(username), {
-        method: 'MKCOL',
-        headers: authHeaders()
-      })
-      // Retry without ETag since the file doesn't exist yet
-      currentETag = ''
-      return writeData(data, false)
-    }
 
     // 412 = ETag mismatch (concurrent edit) → re-read and retry once
     if (res.status === 412 && retry) {
@@ -183,6 +213,8 @@ export function useVotingApi(options?: {
       features.value = toFeatureList(data, userId)
     } catch (e) {
       error.value = (e as Error).message
+      console.error("LOAD FEATURES ERROR:", e)
+      document.body.setAttribute('data-load-error', error.value)
     } finally {
       loading.value = false
     }
@@ -313,6 +345,7 @@ export function useVotingApi(options?: {
     createFeature,
     deleteFeature,
     toggleVote,
-    dismissError
+    dismissError,
+    spaceIdRef
   }
 }

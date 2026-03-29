@@ -20,6 +20,10 @@ build-watch:
 test:
 	cd web && pnpm test:unit
 
+## Run E2E tests
+test-e2e:
+	cd web && pnpm test:e2e
+
 ## Lint all code
 lint:
 	cd web && pnpm lint
