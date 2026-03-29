@@ -125,7 +125,7 @@ onMounted(() => {
                   <path d="M12 4l8 8H4z" />
                 </svg>
               </button>
-              <span class="fv-vote-count">{{ feature.voteCount }}</span>
+              <span class="fv-vote-count">{{ feature.vote_count }}</span>
             </div>
 
             <div class="fv-content">
