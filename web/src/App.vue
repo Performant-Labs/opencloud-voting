@@ -17,16 +17,11 @@ const {
   currentUserId,
   isAdmin,
   loadFeatures,
-  createFeature,
   deleteFeature,
   archiveFeature,
   toggleVote,
   dismissError
 } = useVotingApi({ accessToken: getAccessToken })
-
-const newTitle = ref('')
-const newDescription = ref('')
-const formError = ref('')
 
 const openMenuId = ref<string | null>(null)
 
@@ -42,23 +37,6 @@ function handleClickOutside(event: MouseEvent) {
   const target = event.target as HTMLElement
   if (!target.closest('.fv-actions')) {
     closeAllMenus()
-  }
-}
-
-async function handleSubmit() {
-  formError.value = ''
-  const title = newTitle.value.trim()
-  if (!title) {
-    formError.value = 'Title is required'
-    return
-  }
-
-  const success = await createFeature(title, newDescription.value.trim())
-  if (success) {
-    newTitle.value = ''
-    newDescription.value = ''
-  } else if (error.value) {
-    formError.value = error.value
   }
 }
 
@@ -90,41 +68,22 @@ onUnmounted(() => {
 <template>
   <div class="fv-container">
     <header class="fv-header">
-      <h1>Feature Voting</h1>
-      <p class="fv-subtitle">Submit ideas and vote for the features you want most.</p>
+      <div class="fv-header-top">
+        <div>
+          <h1>Feature Voting</h1>
+          <p class="fv-subtitle">Submit ideas and vote for the features you want most.</p>
+        </div>
+        <button class="fv-btn-primary" @click="$router.push('/feature-voting/new')">
+          Suggest a Feature
+        </button>
+      </div>
     </header>
 
     <!-- Global error banner -->
-    <div v-if="error && !formError" class="fv-error-banner" role="alert">
+    <div v-if="error" class="fv-error-banner" role="alert">
       <span>{{ error }}</span>
       <button class="fv-error-dismiss" @click="dismissError" title="Dismiss">&#x2715;</button>
     </div>
-
-    <section class="fv-submit-form">
-      <h2>Suggest a Feature</h2>
-      <form @submit.prevent="handleSubmit">
-        <input
-          v-model="newTitle"
-          type="text"
-          placeholder="Feature title (required)"
-          maxlength="255"
-          class="fv-input"
-          :disabled="submitting"
-        />
-        <textarea
-          v-model="newDescription"
-          placeholder="Describe the feature (optional)"
-          rows="3"
-          maxlength="2000"
-          class="fv-textarea"
-          :disabled="submitting"
-        />
-        <button type="submit" class="fv-btn-primary" :disabled="submitting">
-          {{ submitting ? 'Submitting…' : 'Submit' }}
-        </button>
-      </form>
-      <p v-if="formError" class="fv-error">{{ formError }}</p>
-    </section>
 
     <section class="fv-list-section">
       <h2>
@@ -222,6 +181,13 @@ onUnmounted(() => {
 .fv-header {
   margin-bottom: 32px;
 }
+.fv-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
 .fv-header h1 {
   font-size: 1.8rem;
   font-weight: 700;
@@ -261,45 +227,6 @@ onUnmounted(() => {
   color: #fff;
 }
 
-/* Submit form */
-.fv-submit-form {
-  background: var(--oc-color-background-default, #fff);
-  border: 1px solid var(--oc-color-border, #e5e7eb);
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 32px;
-}
-.fv-submit-form h2 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: 12px;
-}
-.fv-input,
-.fv-textarea {
-  width: 100%;
-  margin-bottom: 10px;
-  padding: 8px 10px;
-  border: 1px solid var(--oc-color-border, #d1d5db);
-  border-radius: 6px;
-  background: var(--oc-color-background-default, #fff);
-  color: var(--oc-color-text-default, #111827);
-  font-size: 0.95rem;
-  box-sizing: border-box;
-  transition: border-color 0.15s;
-}
-.fv-input:focus,
-.fv-textarea:focus {
-  outline: none;
-  border-color: var(--oc-color-swatch-primary-default, #6366f1);
-}
-.fv-input:disabled,
-.fv-textarea:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.fv-textarea {
-  resize: vertical;
-}
 .fv-btn-primary {
   padding: 8px 20px;
   border: none;
@@ -317,11 +244,6 @@ onUnmounted(() => {
 .fv-btn-primary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-.fv-error {
-  color: var(--oc-color-swatch-danger-default, #ef4444);
-  margin-top: 6px;
-  font-size: 0.9rem;
 }
 
 /* List section */

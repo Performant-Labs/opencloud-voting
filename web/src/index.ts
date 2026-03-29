@@ -33,6 +33,15 @@ export default defineWebApplication({
           authContext: 'user',
           title: $gettext('Feature Voting')
         }
+      },
+      {
+        path: '/new',
+        name: 'new-feature',
+        component: () => import('./NewFeature.vue'),
+        meta: {
+          authContext: 'user',
+          title: $gettext('Suggest a Feature')
+        }
       }
     ]
 
