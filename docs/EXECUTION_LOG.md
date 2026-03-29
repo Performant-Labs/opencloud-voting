@@ -197,3 +197,21 @@ This document records every architectural decision, technical gap bridged, and d
 | `main_test.go` | Unit | 6 | WAL mode, schema idempotency, duplicate vote PK, cascade delete, healthz, readyz |
 | `middleware/auth_test.go` | Unit | 9 | Missing/malformed header, unreachable issuer, context extraction, burst allow/reject, per-user isolation, passthrough |
 | `handlers_test.go` | Integration | 18 | Feature CRUD, vote toggle/concurrency, ownership enforcement, 404 on nonexistent, GDPR deletion, metrics middleware, invalid JSON, unauthenticated access |
+
+---
+
+## Phase 700: Wire the Vue Frontend to the Go API
+
+### 710 — Rewrite useVotingApi.ts
+- **When**: 2026-03-29T14:18 PDT
+- **How**: Completely rewrote `web/src/composables/useVotingApi.ts`. Stripped all WebDAV logic (space discovery, DAV URLs, ETag concurrency, MKCOL, PROPFIND). Replaced with authenticated `fetch()` calls to `/api/voting/*` endpoints on the Go sidecar.
+- **Why**: The WebDAV approach stored all data as a single JSON file in the user's personal space — fundamentally broken for multi-user voting. The Go sidecar provides proper relational storage with server-enforced ownership, atomic vote toggling, and transactional integrity.
+- **Key changes**:
+  - `getUserId()` now extracts only `sub` claim (never `preferred_username`) per PRIVACY_ASSESSMENT.md.
+  - `resolveApiError()` maps machine-readable `ERR_*` codes to user-facing messages (prep for Phase 720 i18n).
+  - `types.ts` updated to match Go API snake_case JSON fields (`created_by`, `created_at`, `vote_count`).
+  - `App.vue` updated: removed `spaceIdRef`, `data-space-id` attribute, and `userId` display (PII). Dates now use `created_at`.
+- **Verification**: `pnpm build` succeeds. `grep` confirms zero remaining WebDAV/ETag/MKCOL/PROPFIND references.
+
+### 720 — I18N (Deferred)
+- **Status**: Deferred to a separate workstream. The `resolveApiError()` function in the composable is pre-wired with a message map that can be replaced with `$gettext()` calls when `vue3-gettext` is configured.

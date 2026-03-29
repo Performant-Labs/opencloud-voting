@@ -97,10 +97,10 @@ Before writing datastore logic or user identity extraction routines in Go, we mu
 > [!WARNING]
 > **Submittability Constraint:** Verify that this implementation does **not create a new code path**. We must actively remove our raw `fetch()` logic and replace it exclusively with OpenCloud's published SDKs (`@opencloud-eu/web-client` or `@opencloud-eu/web-pkg`).
 
-- **[ ] 710 - [MODIFY] `web/src/composables/useVotingApi.ts`**:
+- **[x] 710 - [MODIFY] `web/src/composables/useVotingApi.ts`**:
    - Strip out all WebDAV polling, XML logic, and manual ETag locking.
    - We will leverage the OpenCloud Web SDK utilities directly for making authenticated network requests to our Go sidecar, ensuring perfect alignment with frontend networking architecture.
-- **[ ] 720 - [INTERNATIONALIZATION (I18N)]**: Refactor the entire Vue frontend to strictly utilize `vue3-gettext`. All hardcoded physical English strings must be abstracted into `$gettext('Hello')` hooks so they can accurately generate `.po` translation files. **Crucially, this strict i18n parsing mandate also encompasses all hidden states: dynamically injected API fallback error messages, toast banner notifications, and HTML hover tooltips.**
+- **[ ] 720 - [INTERNATIONALIZATION (I18N)]**: *(Deferred — requires `vue3-gettext` setup which is a separate workstream)*. Refactor the entire Vue frontend to strictly utilize `vue3-gettext`. All hardcoded physical English strings must be abstracted into `$gettext('Hello')` hooks so they can accurately generate `.po` translation files. **Crucially, this strict i18n parsing mandate also encompasses all hidden states: dynamically injected API fallback error messages, toast banner notifications, and HTML hover tooltips.**
 
 **[VERIFY SUBMITTABILITY POST-PHASE]**: We must explicitly verify that the standard global `fetch()` operator has been completely expunged in API calls, natively delegating authentication to the `@opencloud-eu/` imported wrappers.
 

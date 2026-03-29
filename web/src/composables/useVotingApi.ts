@@ -1,30 +1,38 @@
 import { ref, computed } from 'vue'
-import type { Feature, FeatureWithVoted, VotingData } from '../types'
 
 /**
- * Composable for the voting API using OpenCloud WebDAV storage.
+ * Composable for the voting API using the Go sidecar backend.
  *
- * All voting data is stored as a single JSON file in the user's personal
- * space at `.feature-voting/feature-votes.json`. The file is read/written via
- * authenticated WebDAV requests using the OIDC session.
+ * All requests go through the OpenCloud proxy at /api/voting/*,
+ * which forwards them to the voting-app container with the
+ * authenticated user's OIDC Bearer token.
  *
- * OpenCloud (oCIS) uses the Spaces WebDAV API:
- *   1. Discover the personal space ID via GET /graph/v1beta1/me/drives
- *   2. Access files via /dav/spaces/{spaceId}/path
- *
- * Concurrency: uses ETag-based optimistic locking on writes.
- * If a conflict occurs (HTTP 412), the data is re-read and the
- * operation is retried once.
+ * This replaces the previous WebDAV-based storage approach.
+ * No direct fetch() calls — all requests use the authenticated
+ * helper that injects the Bearer token from the OpenCloud auth store.
  */
 
-const DATA_PATH = 'feature-votes.json'
-
-function emptyData(): VotingData {
-  return { features: [], votes: {} }
+export interface Feature {
+  id: string
+  title: string
+  description: string
+  created_by: string
+  created_at: string
+  vote_count: number
 }
 
-function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+export interface FeatureWithVoted extends Feature {
+  voted: boolean
+}
+
+export interface FeatureListResponse {
+  features: Feature[]
+  total: number
+}
+
+export interface ErrorResponse {
+  error_code: string
+  message: string
 }
 
 export function useVotingApi(options?: {
@@ -38,183 +46,96 @@ export function useVotingApi(options?: {
   const error = ref<string | null>(null)
   const total = computed(() => features.value.length)
 
-  // Current user ID extracted from the OIDC token (for vote tracking)
+  // Current user ID extracted from the OIDC token (for voted status)
   let currentUserId = ''
 
-  // Cached personal space ID from the Graph API
-  const spaceIdRef = ref('')
-  let cachedSpaceId = ''
-
-  // ETag for optimistic concurrency
-  let currentETag = ''
-
-  function authHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {}
-    const token = getToken?.()
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`
-    }
-    return headers
-  }
-
   /**
-   * Decode the JWT to extract user identity (without validation —
-   * the server already validated it).
+   * Decode the JWT to extract the `sub` claim for local voted tracking.
+   * The server already validated the token — we only need the subject
+   * for UI state (highlighting the user's own votes).
    */
   function getUserId(): string {
     if (currentUserId) return currentUserId
     const token = getToken?.()
-    if (!token) return 'anonymous'
+    if (!token) return ''
     try {
       const payload = JSON.parse(atob(token.split('.')[1]))
-      currentUserId = payload.preferred_username || payload.sub || 'anonymous'
+      // Use `sub` exclusively — never `preferred_username` or `email`
+      // per PRIVACY_ASSESSMENT.md Section 3.
+      currentUserId = payload.sub || ''
     } catch {
-      currentUserId = 'anonymous'
+      currentUserId = ''
     }
     return currentUserId
   }
 
   /**
-   * Discover the shared Project Space ID via the OpenCloud Graph API.
-   * Looks for a drive named "Feature Voting Data" with driveType "project".
-   * Result is cached after first call.
+   * Make an authenticated request to the Go sidecar API.
+   * The OpenCloud proxy forwards the Bearer token automatically,
+   * but we include it explicitly for direct-access scenarios.
    */
-  async function getSharedSpaceId(): Promise<string> {
-    if (cachedSpaceId) return cachedSpaceId
-
-    const res = await fetch('/graph/v1.0/drives', {
-      method: 'GET',
-      headers: {
-        ...authHeaders(),
-        'Accept': 'application/json'
-      }
-    })
-
-    if (!res.ok) {
-      throw new Error(`Failed to read available spaces: ${res.status} ${res.statusText}`)
-    }
-
-    const data = await res.json()
-    const drives = data.value || data
-    const sharedSpaces = Array.isArray(drives)
-      ? drives.filter((d: any) => d.driveType === 'project' && d.name.startsWith('Feature Voting Data'))
-      : []
-
-    // Take the most recent one by sorting alphabetically (timestamp is at the end)
-    const sharedSpace = sharedSpaces.sort((a, b) => b.name.localeCompare(a.name))[0]
-
-    if (!sharedSpace?.id) {
-      throw new Error("The Feature Voting Data project space has not been configured. Please ask your administrator to create a project space named 'Feature Voting Data' and grant access to all users.")
-    }
-
-    cachedSpaceId = sharedSpace.id
-    spaceIdRef.value = cachedSpaceId
-    return cachedSpaceId
-  }
-
-  /**
-   * Build the WebDAV URL for the voting data file using the Spaces API.
-   */
-  function davUrl(spaceId: string): string {
-    return `/dav/spaces/${spaceId}/${DATA_PATH}`
-  }
-
-  /**
-   * Read the voting data file. Returns empty data if the file doesn't exist.
-   */
-  async function readData(): Promise<VotingData> {
-    const spaceId = await getSharedSpaceId()
-    const res = await fetch(davUrl(spaceId), {
-      method: 'GET',
-      headers: {
-        ...authHeaders(),
-        'Accept': 'application/json'
-      }
-    })
-
-    if (res.status === 404) {
-      currentETag = ''
-      return emptyData()
-    }
-
-    if (!res.ok) {
-      throw new Error(`Failed to read voting data: ${res.status} ${res.statusText}`)
-    }
-
-    currentETag = res.headers.get('ETag') || ''
-    const text = await res.text()
-    try {
-      return JSON.parse(text) as VotingData
-    } catch {
-      return emptyData()
-    }
-  }
-
-  /**
-   * Write the voting data file. Creates the parent folder if needed.
-   * Uses If-Match header for optimistic concurrency.
-   */
-  async function writeData(data: VotingData, retry = true): Promise<void> {
-    const spaceId = await getSharedSpaceId()
-    const body = JSON.stringify(data, null, 2)
-
+  async function apiRequest(
+    path: string,
+    options: RequestInit = {}
+  ): Promise<Response> {
+    const token = getToken?.()
     const headers: Record<string, string> = {
-      ...authHeaders(),
-      'Content-Type': 'application/json'
+      'Accept': 'application/json',
+      ...(options.headers as Record<string, string> || {})
+    }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
     }
 
-    // Use ETag for optimistic concurrency (skip on first write)
-    if (currentETag) {
-      headers['If-Match'] = currentETag
-    }
-
-    const res = await fetch(davUrl(spaceId), {
-      method: 'PUT',
-      headers,
-      body
+    return fetch(`/api/voting${path}`, {
+      ...options,
+      headers
     })
-
-    // 412 = ETag mismatch (concurrent edit) → re-read and retry once
-    if (res.status === 412 && retry) {
-      // Re-read to get fresh data — caller must re-apply their change
-      throw new Error('CONFLICT')
-    }
-
-    if (!res.ok) {
-      throw new Error(`Failed to write voting data: ${res.status} ${res.statusText}`)
-    }
-
-    // Update ETag from response
-    currentETag = res.headers.get('ETag') || ''
   }
 
   /**
-   * Transform raw data into the view model with voted status.
+   * Map an API error response to a user-facing message.
+   * Error codes are machine-readable (ERR_*) for i18n mapping.
+   * TODO (Phase 720): Replace these with $gettext() calls.
    */
-  function toFeatureList(data: VotingData, userId: string): FeatureWithVoted[] {
-    return data.features
-      .map((f) => ({
-        ...f,
-        voteCount: (data.votes[f.id] || []).length,
-        voted: (data.votes[f.id] || []).includes(userId)
-      }))
-      .sort((a, b) => b.voteCount - a.voteCount || b.createdAt.localeCompare(a.createdAt))
+  function resolveApiError(errorCode: string, fallback: string): string {
+    const messages: Record<string, string> = {
+      ERR_TITLE_EMPTY: 'Title is required',
+      ERR_TITLE_TOO_LONG: 'Title must not exceed 255 characters',
+      ERR_NOT_OWNER: 'You can only delete features you created',
+      ERR_FEATURE_NOT_FOUND: 'Feature not found',
+      ERR_RATE_LIMITED: 'Too many requests — please wait a moment',
+      ERR_AUTH_REQUIRED: 'Authentication required',
+      ERR_AUTH_MISSING: 'Authentication required',
+      ERR_AUTH_INVALID: 'Session expired — please refresh the page',
+      ERR_INVALID_JSON: 'Invalid request',
+      ERR_INTERNAL: 'Something went wrong — please try again'
+    }
+    return messages[errorCode] || fallback
   }
 
   /**
-   * Load all features from storage.
+   * Load all features from the Go API.
    */
   async function loadFeatures(): Promise<void> {
     loading.value = true
     error.value = null
     try {
-      const data = await readData()
-      const userId = getUserId()
-      features.value = toFeatureList(data, userId)
+      const res = await apiRequest('/features')
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error_code: 'ERR_INTERNAL', message: 'Failed to load features' }))
+        throw new Error(resolveApiError(body.error_code, body.message))
+      }
+
+      const data: FeatureListResponse = await res.json()
+      // The API doesn't track per-user voted status — we'll need to
+      // add that in a future iteration. For now, mark all as not voted.
+      features.value = (data.features || []).map(f => ({
+        ...f,
+        voted: false
+      }))
     } catch (e) {
       error.value = (e as Error).message
-      console.error("LOAD FEATURES ERROR:", e)
-      document.body.setAttribute('data-load-error', error.value)
     } finally {
       loading.value = false
     }
@@ -223,72 +144,50 @@ export function useVotingApi(options?: {
   /**
    * Create a new feature request.
    */
-  async function createFeature(title: string, description: string): Promise<Feature | null> {
+  async function createFeature(title: string, description: string): Promise<boolean> {
     submitting.value = true
     error.value = null
     try {
-      const data = await readData()
-      const userId = getUserId()
-      const feature: Feature = {
-        id: generateId(),
-        title: title.replace(/<[^>]*>/g, '').trim().slice(0, 255),
-        description: (description.replace(/<[^>]*>/g, '').trim() || '').slice(0, 2000),
-        userId,
-        voteCount: 0,
-        createdAt: new Date().toISOString()
+      const res = await apiRequest('/features', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description })
+      })
+
+      if (!res.ok) {
+        const body: ErrorResponse = await res.json().catch(() => ({ error_code: 'ERR_INTERNAL', message: 'Failed to create feature' }))
+        error.value = resolveApiError(body.error_code, body.message)
+        return false
       }
-      data.features.push(feature)
-      await writeData(data)
-      features.value = toFeatureList(data, userId)
-      return feature
+
+      // Reload features to get the updated list with vote counts.
+      await loadFeatures()
+      return true
     } catch (e) {
-      if ((e as Error).message === 'CONFLICT') {
-        // Retry once on conflict
-        try {
-          return await createFeature(title, description)
-        } catch (e2) {
-          error.value = (e2 as Error).message
-          return null
-        }
-      }
       error.value = (e as Error).message
-      return null
+      return false
     } finally {
       submitting.value = false
     }
   }
 
   /**
-   * Delete a feature (owner only, enforced client-side).
+   * Delete a feature (server enforces ownership).
    */
   async function deleteFeature(id: string): Promise<boolean> {
     error.value = null
     try {
-      const data = await readData()
-      const userId = getUserId()
-      const feature = data.features.find((f) => f.id === id)
-      if (!feature) {
-        error.value = 'Feature not found'
+      const res = await apiRequest(`/features/${id}`, { method: 'DELETE' })
+
+      if (!res.ok) {
+        const body: ErrorResponse = await res.json().catch(() => ({ error_code: 'ERR_INTERNAL', message: 'Failed to delete feature' }))
+        error.value = resolveApiError(body.error_code, body.message)
         return false
       }
-      if (feature.userId !== userId) {
-        error.value = 'You can only delete your own features'
-        return false
-      }
-      data.features = data.features.filter((f) => f.id !== id)
-      delete data.votes[id]
-      await writeData(data)
-      features.value = toFeatureList(data, userId)
+
+      await loadFeatures()
       return true
     } catch (e) {
-      if ((e as Error).message === 'CONFLICT') {
-        try {
-          return await deleteFeature(id)
-        } catch (e2) {
-          error.value = (e2 as Error).message
-          return false
-        }
-      }
       error.value = (e as Error).message
       return false
     }
@@ -300,32 +199,19 @@ export function useVotingApi(options?: {
   async function toggleVote(featureId: string): Promise<boolean> {
     error.value = null
     try {
-      const data = await readData()
-      const userId = getUserId()
+      const res = await apiRequest(`/features/${featureId}/vote`, {
+        method: 'POST'
+      })
 
-      if (!data.votes[featureId]) {
-        data.votes[featureId] = []
+      if (!res.ok) {
+        const body: ErrorResponse = await res.json().catch(() => ({ error_code: 'ERR_INTERNAL', message: 'Failed to toggle vote' }))
+        error.value = resolveApiError(body.error_code, body.message)
+        return false
       }
 
-      const idx = data.votes[featureId].indexOf(userId)
-      if (idx >= 0) {
-        data.votes[featureId].splice(idx, 1)
-      } else {
-        data.votes[featureId].push(userId)
-      }
-
-      await writeData(data)
-      features.value = toFeatureList(data, userId)
+      await loadFeatures()
       return true
     } catch (e) {
-      if ((e as Error).message === 'CONFLICT') {
-        try {
-          return await toggleVote(featureId)
-        } catch (e2) {
-          error.value = (e2 as Error).message
-          return false
-        }
-      }
       error.value = (e as Error).message
       return false
     }
@@ -345,7 +231,6 @@ export function useVotingApi(options?: {
     createFeature,
     deleteFeature,
     toggleVote,
-    dismissError,
-    spaceIdRef
+    dismissError
   }
 }

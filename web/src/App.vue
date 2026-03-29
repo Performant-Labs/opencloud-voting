@@ -4,7 +4,7 @@ import { useAuthStore } from '@opencloud-eu/web-pkg'
 import { useVotingApi } from './composables/useVotingApi'
 
 // Get the OIDC access token from the OpenCloud auth store.
-// This token is used for authenticated WebDAV requests.
+// This token is used for authenticated API requests to the Go sidecar.
 const authStore = useAuthStore()
 const getAccessToken = () => (authStore as any).accessToken
 
@@ -18,8 +18,7 @@ const {
   createFeature,
   deleteFeature,
   toggleVote,
-  dismissError,
-  spaceIdRef
+  dismissError
 } = useVotingApi({ accessToken: getAccessToken })
 
 const newTitle = ref('')
@@ -34,8 +33,8 @@ async function handleSubmit() {
     return
   }
 
-  const result = await createFeature(title, newDescription.value.trim())
-  if (result) {
+  const success = await createFeature(title, newDescription.value.trim())
+  if (success) {
     newTitle.value = ''
     newDescription.value = ''
   } else if (error.value) {
@@ -58,7 +57,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="fv-container" :data-space-id="spaceIdRef">
+  <div class="fv-container">
     <header class="fv-header">
       <h1>Feature Voting</h1>
       <p class="fv-subtitle">Submit ideas and vote for the features you want most.</p>
@@ -133,7 +132,7 @@ onMounted(() => {
               <strong class="fv-item-title">{{ feature.title }}</strong>
               <p v-if="feature.description" class="fv-item-desc">{{ feature.description }}</p>
               <small class="fv-item-meta">
-                {{ feature.userId }} · {{ formatDate(feature.createdAt) }}
+                {{ formatDate(feature.created_at) }}
               </small>
             </div>
 

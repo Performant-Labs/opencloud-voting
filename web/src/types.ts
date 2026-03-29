@@ -2,16 +2,21 @@ export interface Feature {
   id: string
   title: string
   description: string
-  userId: string
-  voteCount: number
-  createdAt: string
+  created_by: string
+  created_at: string
+  vote_count: number
 }
 
 export interface FeatureWithVoted extends Feature {
   voted: boolean
 }
 
-export interface VotingData {
+export interface FeatureListResponse {
   features: Feature[]
-  votes: Record<string, string[]> // featureId → array of userIds
+  total: number
+}
+
+export interface ErrorResponse {
+  error_code: string
+  message: string
 }
