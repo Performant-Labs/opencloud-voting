@@ -205,6 +205,15 @@ func migrateSchema(ctx context.Context, db *sql.DB) error {
 		voted_at   DATETIME NOT NULL DEFAULT (datetime('now')),
 		PRIMARY KEY (feature_id, user_id)
 	);
+
+	CREATE TABLE IF NOT EXISTS voting_comments (
+		id         TEXT PRIMARY KEY,
+		feature_id TEXT NOT NULL REFERENCES voting_features(id) ON DELETE CASCADE,
+		user_id    TEXT NOT NULL,
+		user_name  TEXT NOT NULL,
+		body       TEXT NOT NULL CHECK(length(body) <= 2000),
+		created_at DATETIME NOT NULL DEFAULT (datetime('now'))
+	);
 	`
 
 	if _, err := db.ExecContext(ctx, schema); err != nil {

@@ -4,6 +4,7 @@ import Fuse from "fuse.js"
 import { useAuthStore } from "@opencloud-eu/web-pkg"
 import { useVotingApi } from "./composables/useVotingApi"
 import Breadcrumbs from "./components/Breadcrumbs.vue"
+import type { Comment } from "./types"
 
 const breadcrumbs = [
   { label: 'Home', to: '/' },
@@ -27,8 +28,51 @@ const {
   deleteFeature,
   archiveFeature,
   toggleVote,
+  listComments,
+  createComment,
+  deleteComment,
   dismissError,
 } = useVotingApi({ accessToken: getAccessToken })
+
+// Comment state keyed by feature ID
+const expandedComments = ref<Set<string>>(new Set())
+const commentsByFeature = ref<Record<string, Comment[]>>({})
+const commentLoadingFor = ref<Set<string>>(new Set())
+const newCommentBody = ref<Record<string, string>>({})
+const commentSubmittingFor = ref<Set<string>>(new Set())
+
+async function toggleComments(featureId: string) {
+  if (expandedComments.value.has(featureId)) {
+    expandedComments.value.delete(featureId)
+    return
+  }
+  expandedComments.value.add(featureId)
+  await refreshComments(featureId)
+}
+
+async function refreshComments(featureId: string) {
+  commentLoadingFor.value.add(featureId)
+  commentsByFeature.value[featureId] = await listComments(featureId)
+  commentLoadingFor.value.delete(featureId)
+}
+
+async function submitComment(featureId: string) {
+  const body = (newCommentBody.value[featureId] || "").trim()
+  if (!body) return
+  commentSubmittingFor.value.add(featureId)
+  const ok = await createComment(featureId, body)
+  if (ok) {
+    newCommentBody.value[featureId] = ""
+    await refreshComments(featureId)
+  }
+  commentSubmittingFor.value.delete(featureId)
+}
+
+async function handleDeleteComment(featureId: string, commentId: string) {
+  if (!confirm("Delete this comment?")) return
+  const ok = await deleteComment(featureId, commentId)
+  if (ok) await refreshComments(featureId)
+}
 
 const openMenuId = ref<string | null>(null)
 
@@ -198,6 +242,64 @@ onUnmounted(() => {
               <small class="fv-item-meta">
                 {{ formatDate(feature.created_at) }}
               </small>
+
+              <!-- Comment toggle -->
+              <button
+                class="fv-comments-toggle"
+                @click.stop="toggleComments(feature.id)"
+              >
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                  <path d="M21 6c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h11l4 4V6z"/>
+                </svg>
+                {{ (commentsByFeature[feature.id] || []).length }} comment{{ (commentsByFeature[feature.id] || []).length === 1 ? '' : 's' }}
+              </button>
+
+              <!-- Inline comment section -->
+              <div v-if="expandedComments.has(feature.id)" class="fv-comments">
+                <p v-if="commentLoadingFor.has(feature.id)" class="fv-comments-loading">Loading…</p>
+                <template v-else>
+                  <div
+                    v-for="comment in (commentsByFeature[feature.id] || [])"
+                    :key="comment.id"
+                    class="fv-comment"
+                  >
+                    <div class="fv-comment-header">
+                      <span class="fv-comment-author">{{ comment.user_name }}</span>
+                      <span class="fv-comment-date">{{ formatDate(comment.created_at) }}</span>
+                      <button
+                        v-if="comment.user_id === currentUserId || isAdmin"
+                        class="fv-comment-delete"
+                        title="Delete comment"
+                        @click.stop="handleDeleteComment(feature.id, comment.id)"
+                      >&#x2715;</button>
+                    </div>
+                    <p class="fv-comment-body">{{ comment.body }}</p>
+                  </div>
+                  <p v-if="!(commentsByFeature[feature.id] || []).length" class="fv-comments-empty">
+                    No comments yet.
+                  </p>
+                </template>
+
+                <!-- New comment form -->
+                <div class="fv-comment-form">
+                  <textarea
+                    v-model="newCommentBody[feature.id]"
+                    class="fv-comment-input"
+                    placeholder="Add a comment…"
+                    rows="2"
+                    maxlength="2000"
+                    @keydown.ctrl.enter.prevent="submitComment(feature.id)"
+                    @keydown.meta.enter.prevent="submitComment(feature.id)"
+                  />
+                  <button
+                    class="fv-btn-primary fv-comment-submit"
+                    :disabled="commentSubmittingFor.has(feature.id) || !(newCommentBody[feature.id] || '').trim()"
+                    @click.stop="submitComment(feature.id)"
+                  >
+                    {{ commentSubmittingFor.has(feature.id) ? 'Posting…' : 'Post' }}
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div v-if="isAdmin" class="fv-actions">
@@ -560,5 +662,113 @@ onUnmounted(() => {
 }
 .fv-action-danger:hover {
   background: var(--oc-color-swatch-danger-muted, #fef2f2);
+}
+
+/* Comment toggle button */
+.fv-comments-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 3px 8px;
+  border: 1px solid var(--oc-color-border, #d1d5db);
+  border-radius: 20px;
+  background: none;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--oc-color-text-muted, #6b7280);
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.fv-comments-toggle:hover {
+  border-color: var(--oc-color-swatch-primary-default, #6366f1);
+  color: var(--oc-color-swatch-primary-default, #6366f1);
+  background: var(--oc-color-swatch-primary-muted, #eef2ff);
+}
+
+/* Comment section */
+.fv-comments {
+  margin-top: 12px;
+  border-top: 1px solid var(--oc-color-border, #e5e7eb);
+  padding-top: 12px;
+}
+.fv-comments-loading,
+.fv-comments-empty {
+  font-size: 0.82rem;
+  color: var(--oc-color-text-muted, #9ca3af);
+  margin: 0 0 10px;
+}
+.fv-comment {
+  margin-bottom: 10px;
+}
+.fv-comment-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.fv-comment-author {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--oc-color-text-default, #111827);
+}
+.fv-comment-date {
+  font-size: 0.76rem;
+  color: var(--oc-color-text-muted, #9ca3af);
+}
+.fv-comment-delete {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--oc-color-text-muted, #9ca3af);
+  font-size: 0.75rem;
+  padding: 1px 4px;
+  border-radius: 4px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.fv-comment:hover .fv-comment-delete {
+  opacity: 1;
+}
+.fv-comment-delete:hover {
+  color: var(--oc-color-swatch-danger-default, #ef4444);
+}
+.fv-comment-body {
+  font-size: 0.88rem;
+  color: var(--oc-color-text-default, #374151);
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* New comment form */
+.fv-comment-form {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  margin-top: 10px;
+}
+.fv-comment-input {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid var(--oc-color-border, #d1d5db);
+  border-radius: 6px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  resize: vertical;
+  background: var(--oc-color-background-default, #fff);
+  color: var(--oc-color-text-default, #111827);
+  transition: border-color 0.15s;
+}
+.fv-comment-input:focus {
+  outline: none;
+  border-color: var(--oc-color-swatch-primary-default, #6366f1);
+}
+.fv-comment-submit {
+  padding: 7px 14px;
+  font-size: 0.88rem;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 </style>

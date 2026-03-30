@@ -45,3 +45,25 @@ type FeatureListResponse struct {
 	Features []Feature `json:"features"`
 	Total    int       `json:"total"`
 }
+
+// Comment represents a user comment on a feature request.
+// UserName stores the display name at the time of posting for attribution.
+type Comment struct {
+	ID        string    `json:"id"`
+	FeatureID string    `json:"feature_id"`
+	UserID    string    `json:"user_id"`
+	UserName  string    `json:"user_name"`
+	Body      string    `json:"body"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// CreateCommentRequest is the expected JSON body for POST /api/voting/features/{id}/comments.
+type CreateCommentRequest struct {
+	Body string `json:"body"`
+}
+
+// CommentListResponse wraps the comment list for JSON serialization.
+type CommentListResponse struct {
+	Comments []Comment `json:"comments"`
+	Total    int       `json:"total"`
+}

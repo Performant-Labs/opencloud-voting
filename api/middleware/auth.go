@@ -15,6 +15,7 @@ import (
 type contextKey string
 
 const userIDKey contextKey = "userID"
+const userNameKey contextKey = "userName"
 
 // UserIDFromContext extracts the authenticated user's OIDC `sub` claim
 // from the request context. Returns empty string if not authenticated.
@@ -25,11 +26,26 @@ func UserIDFromContext(ctx context.Context) string {
 	return ""
 }
 
+// UserNameFromContext extracts the authenticated user's display name
+// from the request context. Falls back to the user ID if not set.
+func UserNameFromContext(ctx context.Context) string {
+	if v, ok := ctx.Value(userNameKey).(string); ok && v != "" {
+		return v
+	}
+	return UserIDFromContext(ctx)
+}
+
 // ExportedUserIDKey returns the context key used to store the user ID.
 // This is exported for use in test code that needs to inject user IDs
 // into request contexts without going through the full OIDC flow.
 func ExportedUserIDKey() contextKey {
 	return userIDKey
+}
+
+// ExportedUserNameKey returns the context key used to store the display name.
+// Exported for test injection without a full OIDC flow.
+func ExportedUserNameKey() contextKey {
+	return userNameKey
 }
 
 // OIDCAuth provides OpenID Connect (OIDC) JWT validation middleware that
@@ -133,8 +149,24 @@ func (a *OIDCAuth) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Inject the user ID into the request context for downstream handlers.
+		// Extract display name for comment attribution.
+		// preferred_username > name > sub — never persisted for features/votes.
+		var claims struct {
+			PreferredUsername string `json:"preferred_username"`
+			Name              string `json:"name"`
+		}
+		userName := userID
+		if err := idToken.Claims(&claims); err == nil {
+			if claims.PreferredUsername != "" {
+				userName = claims.PreferredUsername
+			} else if claims.Name != "" {
+				userName = claims.Name
+			}
+		}
+
+		// Inject the user ID and display name into the request context.
 		ctx := context.WithValue(r.Context(), userIDKey, userID)
+		ctx = context.WithValue(ctx, userNameKey, userName)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

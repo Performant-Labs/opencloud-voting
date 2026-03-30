@@ -1,5 +1,11 @@
 import { ref, computed } from "vue";
-import type { Feature, FeatureListResponse, ErrorResponse } from "../types";
+import type {
+  Feature,
+  FeatureListResponse,
+  ErrorResponse,
+  Comment,
+  CommentListResponse,
+} from "../types";
 
 /**
  * Composable for the voting API using the Go sidecar backend.
@@ -99,7 +105,9 @@ export function useVotingApi(options?: {
     const messages: Record<string, string> = {
       ERR_TITLE_EMPTY: "Title is required",
       ERR_TITLE_TOO_LONG: "Title must not exceed 255 characters",
-      ERR_NOT_OWNER: "You can only delete features you created",
+      ERR_NOT_OWNER: "You can only delete content you created",
+      ERR_BODY_EMPTY: "Comment cannot be empty",
+      ERR_BODY_TOO_LONG: "Comment must not exceed 2000 characters",
       ERR_FEATURE_NOT_FOUND: "Feature not found",
       ERR_RATE_LIMITED: "Too many requests — please wait a moment",
       ERR_AUTH_REQUIRED: "Authentication required",
@@ -254,6 +262,79 @@ export function useVotingApi(options?: {
     }
   }
 
+  /**
+   * Load all comments for a feature.
+   */
+  async function listComments(featureId: string): Promise<Comment[]> {
+    try {
+      const res = await apiRequest(`/features/${featureId}/comments`);
+      if (!res.ok) return [];
+      const data: CommentListResponse = await res.json();
+      return data.comments || [];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Post a new comment on a feature.
+   */
+  async function createComment(
+    featureId: string,
+    body: string,
+  ): Promise<boolean> {
+    try {
+      const res = await apiRequest(`/features/${featureId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body }),
+      });
+      if (!res.ok) {
+        const data: ErrorResponse = await res
+          .json()
+          .catch(() => ({
+            error_code: "ERR_INTERNAL",
+            message: "Failed to post comment",
+          }));
+        error.value = resolveApiError(data.error_code, data.message);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      error.value = (e as Error).message;
+      return false;
+    }
+  }
+
+  /**
+   * Delete a comment (server enforces ownership).
+   */
+  async function deleteComment(
+    featureId: string,
+    commentId: string,
+  ): Promise<boolean> {
+    try {
+      const res = await apiRequest(
+        `/features/${featureId}/comments/${commentId}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        const data: ErrorResponse = await res
+          .json()
+          .catch(() => ({
+            error_code: "ERR_INTERNAL",
+            message: "Failed to delete comment",
+          }));
+        error.value = resolveApiError(data.error_code, data.message);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      error.value = (e as Error).message;
+      return false;
+    }
+  }
+
   function dismissError() {
     error.value = null;
   }
@@ -271,6 +352,9 @@ export function useVotingApi(options?: {
     deleteFeature,
     archiveFeature,
     toggleVote,
+    listComments,
+    createComment,
+    deleteComment,
     dismissError,
   };
 }

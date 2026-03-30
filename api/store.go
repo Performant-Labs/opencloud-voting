@@ -198,6 +198,77 @@ func (s *VotingStore) ToggleVote(ctx context.Context, featureID, userID string) 
 	return true, nil
 }
 
+// ListComments returns all comments for the given feature, oldest first.
+func (s *VotingStore) ListComments(ctx context.Context, featureID string) ([]Comment, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, feature_id, user_id, user_name, body, created_at
+		FROM voting_comments
+		WHERE feature_id = ?
+		ORDER BY created_at ASC
+	`, featureID)
+	if err != nil {
+		return nil, fmt.Errorf("list comments: %w", err)
+	}
+	defer rows.Close()
+
+	var comments []Comment
+	for rows.Next() {
+		var c Comment
+		if err := rows.Scan(&c.ID, &c.FeatureID, &c.UserID, &c.UserName, &c.Body, &c.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan comment row: %w", err)
+		}
+		comments = append(comments, c)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate comment rows: %w", err)
+	}
+
+	return comments, nil
+}
+
+// CreateComment inserts a new comment on a feature.
+// Returns an error wrapping "feature not found" if the feature does not exist.
+func (s *VotingStore) CreateComment(ctx context.Context, id, featureID, userID, userName, body string) error {
+	var exists int
+	err := s.db.QueryRowContext(ctx, `SELECT 1 FROM voting_features WHERE id = ?`, featureID).Scan(&exists)
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("feature not found: %s", featureID)
+	}
+	if err != nil {
+		return fmt.Errorf("create comment feature lookup: %w", err)
+	}
+
+	_, err = s.db.ExecContext(ctx,
+		`INSERT INTO voting_comments (id, feature_id, user_id, user_name, body) VALUES (?, ?, ?, ?, ?)`,
+		id, featureID, userID, userName, body,
+	)
+	if err != nil {
+		return fmt.Errorf("create comment: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteComment removes a comment only if the requesting user is the author.
+// Returns true if a row was deleted, false if not found or not owned by the user.
+func (s *VotingStore) DeleteComment(ctx context.Context, commentID, userID string) (bool, error) {
+	result, err := s.db.ExecContext(ctx,
+		`DELETE FROM voting_comments WHERE id = ? AND user_id = ?`,
+		commentID, userID,
+	)
+	if err != nil {
+		return false, fmt.Errorf("delete comment: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("delete comment rows affected: %w", err)
+	}
+
+	return rowsAffected > 0, nil
+}
+
 // DeleteUserData removes all data associated with a user ID.
 // Implements GDPR Right to Erasure cascading deletion
 // per PRIVACY_ASSESSMENT.md Section 4.
@@ -213,7 +284,12 @@ func (s *VotingStore) DeleteUserData(ctx context.Context, userID string) error {
 		return fmt.Errorf("delete user votes: %w", err)
 	}
 
-	// Delete all features created by this user (cascade deletes votes on those features).
+	// Delete all comments by this user.
+	if _, err := tx.ExecContext(ctx, `DELETE FROM voting_comments WHERE user_id = ?`, userID); err != nil {
+		return fmt.Errorf("delete user comments: %w", err)
+	}
+
+	// Delete all features created by this user (cascade deletes votes and comments on those features).
 	if _, err := tx.ExecContext(ctx, `DELETE FROM voting_features WHERE created_by = ?`, userID); err != nil {
 		return fmt.Errorf("delete user features: %w", err)
 	}
