@@ -1,38 +1,46 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { useAuthStore } from "@opencloud-eu/web-pkg";
-import { useVotingApi } from "./composables/useVotingApi";
+import { ref } from "vue"
+import { useAuthStore } from "@opencloud-eu/web-pkg"
+import { useVotingApi } from "./composables/useVotingApi"
+import Breadcrumbs from "./components/Breadcrumbs.vue"
 
-const authStore = useAuthStore();
-const getAccessToken = () => (authStore as any).accessToken;
+const breadcrumbs = [
+  { label: 'Home', to: '/' },
+  { label: 'Feature Voting', to: '/feature-voting/board' },
+  { label: 'Suggest a Feature' }
+]
+
+const authStore = useAuthStore()
+const getAccessToken = () => (authStore as any).accessToken
 
 const { createFeature, submitting, error, dismissError } = useVotingApi({
   accessToken: getAccessToken,
-});
+})
 
-const newTitle = ref("");
-const newDescription = ref("");
-const formError = ref("");
+const newTitle = ref("")
+const newDescription = ref("")
+const formError = ref("")
 
 async function handleSubmit() {
-  formError.value = "";
-  const title = newTitle.value.trim();
+  formError.value = ""
+  const title = newTitle.value.trim()
   if (!title) {
-    formError.value = "Title is required";
-    return;
+    formError.value = "Title is required"
+    return
   }
 
-  const success = await createFeature(title, newDescription.value.trim());
+  const success = await createFeature(title, newDescription.value.trim())
   if (success) {
-    window.history.back();
+    window.history.back()
   } else if (error.value) {
-    formError.value = error.value;
+    formError.value = error.value
   }
 }
 </script>
 
 <template>
   <div class="fv-container">
+    <Breadcrumbs :items="breadcrumbs" />
     <header class="fv-header">
       <h1>Suggest a Feature</h1>
       <p class="fv-subtitle">
@@ -42,7 +50,7 @@ async function handleSubmit() {
 
     <div v-if="error && !formError" class="fv-error-banner" role="alert">
       <span>{{ error }}</span>
-      <button class="fv-error-dismiss" @click="dismissError" title="Dismiss">
+      <button class="fv-error-dismiss" title="Dismiss" @click="dismissError">
         &#x2715;
       </button>
     </div>
@@ -72,8 +80,8 @@ async function handleSubmit() {
           <button
             type="button"
             class="fv-btn-secondary"
-            @click="$router.push('/feature-voting/board')"
             :disabled="submitting"
+            @click="$router.push('/feature-voting/board')"
           >
             Cancel
           </button>

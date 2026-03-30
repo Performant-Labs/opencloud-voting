@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, computed } from "vue";
-import Fuse from "fuse.js";
-import { useAuthStore } from "@opencloud-eu/web-pkg";
-import { useVotingApi } from "./composables/useVotingApi";
+import { onMounted, onUnmounted, ref, computed } from "vue"
+import Fuse from "fuse.js"
+import { useAuthStore } from "@opencloud-eu/web-pkg"
+import { useVotingApi } from "./composables/useVotingApi"
+import Breadcrumbs from "./components/Breadcrumbs.vue"
+
+const breadcrumbs = [
+  { label: 'Home', to: '/' },
+  { label: 'Feature Voting' }
+]
 
 // Get the OIDC access token from the OpenCloud auth store.
 // This token is used for authenticated API requests to the Go sidecar.
-const authStore = useAuthStore();
-const getAccessToken = () => (authStore as any).accessToken;
+const authStore = useAuthStore()
+const getAccessToken = () => (authStore as any).accessToken
 
 const {
   features,
@@ -22,41 +28,41 @@ const {
   archiveFeature,
   toggleVote,
   dismissError,
-} = useVotingApi({ accessToken: getAccessToken });
+} = useVotingApi({ accessToken: getAccessToken })
 
-const openMenuId = ref<string | null>(null);
+const openMenuId = ref<string | null>(null)
 
 function toggleMenu(id: string) {
-  openMenuId.value = openMenuId.value === id ? null : id;
+  openMenuId.value = openMenuId.value === id ? null : id
 }
 
 function closeAllMenus() {
-  openMenuId.value = null;
+  openMenuId.value = null
 }
 
 function handleClickOutside(event: MouseEvent) {
-  const target = event.target as HTMLElement;
+  const target = event.target as HTMLElement
   if (!target.closest(".fv-actions")) {
-    closeAllMenus();
+    closeAllMenus()
   }
 }
 
 async function handleDelete(id: string) {
-  closeAllMenus();
-  if (!confirm("Delete this feature request?")) return;
-  await deleteFeature(id);
+  closeAllMenus()
+  if (!confirm("Delete this feature request?")) return
+  await deleteFeature(id)
 }
 
 async function handleArchive(id: string) {
-  closeAllMenus();
-  await archiveFeature(id);
+  closeAllMenus()
+  await archiveFeature(id)
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString();
+  return new Date(dateStr).toLocaleDateString()
 }
 
-const searchQuery = ref("");
+const searchQuery = ref("")
 
 const fuse = computed(() => {
   return new Fuse(features.value, {
@@ -66,28 +72,29 @@ const fuse = computed(() => {
     ],
     threshold: 0.3,
     ignoreLocation: true,
-  });
-});
+  })
+})
 
 const filteredFeatures = computed(() => {
-  if (!searchQuery.value.trim()) return features.value;
+  if (!searchQuery.value.trim()) return features.value
   return fuse.value
     .search(searchQuery.value.trim())
-    .map((result) => result.item);
-});
+    .map((result) => result.item)
+})
 
 onMounted(() => {
-  loadFeatures();
-  document.addEventListener("click", handleClickOutside);
-});
+  loadFeatures()
+  document.addEventListener("click", handleClickOutside)
+})
 
 onUnmounted(() => {
-  document.removeEventListener("click", handleClickOutside);
-});
+  document.removeEventListener("click", handleClickOutside)
+})
 </script>
 
 <template>
   <div class="fv-container">
+    <Breadcrumbs :items="breadcrumbs" />
     <header class="fv-header">
       <div class="fv-header-top">
         <div>
@@ -108,7 +115,7 @@ onUnmounted(() => {
     <!-- Global error banner -->
     <div v-if="error" class="fv-error-banner" role="alert">
       <span>{{ error }}</span>
-      <button class="fv-error-dismiss" @click="dismissError" title="Dismiss">
+      <button class="fv-error-dismiss" title="Dismiss" @click="dismissError">
         &#x2715;
       </button>
     </div>
@@ -128,10 +135,10 @@ onUnmounted(() => {
       <!-- Features List Wrapper -->
       <template v-else>
         <!-- Search Bar: Only show if there are features in the system -->
-        <div class="fv-search-container" v-if="features.length > 0">
+        <div v-if="features.length > 0" class="fv-search-container">
           <input
-            type="search"
             v-model="searchQuery"
+            type="search"
             placeholder="Search features..."
             class="fv-search-input"
           />
