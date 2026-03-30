@@ -1,6 +1,6 @@
 # docker-compose.override.yml
 #
-# Feature Voting sidecar — drop this file into your opencloud-compose
+# Feature Voting sidecar — drop this file into your opencloud
 # directory alongside docker-compose.yml and run:
 #
 #   docker compose up -d voting-app

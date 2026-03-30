@@ -54,7 +54,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture decis
 
 **For Running/Installation:**
 - Docker + Docker Compose v2+
-- A running [`opencloud-compose`](https://github.com/opencloud-eu/opencloud-compose) instance at `cloud.opencloud.test` for local testing
+- A running [`opencloud`](https://github.com/opencloud-eu/opencloud) instance at `cloud.opencloud.test` for local testing
 
 **For Building from Source:**
 - Node.js 22+ & [pnpm](https://pnpm.io/installation) v10+
@@ -67,7 +67,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture decis
 See **[INSTALLATION.md](INSTALLATION.md)** for full instructions, including:
 
 - **Method A — Sidecar Override** (recommended): drop a single compose override file into your deployment directory
-- **Method B — COMPOSE_FILE Append**: upstream-aligned method matching opencloud-compose conventions (Collabora, Radicale, etc.)
+- **Method B — COMPOSE_FILE Append**: upstream-aligned method matching opencloud conventions (Collabora, Radicale, etc.)
 
 ---
 

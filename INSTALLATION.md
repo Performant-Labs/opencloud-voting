@@ -5,7 +5,7 @@ This guide covers two **installation methods** and two **configuration approache
 | Decision | Options | Best For |
 |:---------|:--------|:---------|
 | **Installation method** | [Method A (Override)](#method-a--sidecar-override-recommended) | **Quick Start**: Self-contained and easiest to set up. |
-| | [Method B (Append)](#method-b--compose_file-append-opencloud-compose-modular-pattern) | **Standard**: Aligns with official `opencloud-compose` patterns. |
+| | [Method B (Append)](#method-b--compose_file-append-opencloud-modular-pattern) | **Standard**: Aligns with official `opencloud` patterns. |
 | **Configuration approach** | [Path 1 (.env)](#configuration-path-1--env-file) | **Simplicity**: Keeps all settings in a single file. |
 | | [Path 2 (Inline)](#configuration-path-2--inline-in-the-compose-file) | **Control**: Allows overriding hidden or advanced defaults. |
 
@@ -13,16 +13,16 @@ This guide covers two **installation methods** and two **configuration approache
 
 ## Prerequisites
 
-- A running [`opencloud-compose`](https://github.com/opencloud-eu/opencloud-compose) deployment
+- A running [`opencloud`](https://github.com/opencloud-eu/opencloud) deployment
 - Docker Compose v2
 - Your OpenCloud domain (e.g. `cloud.opencloud.test` for local dev, or your production domain)
-- Your `COMPOSE_PROJECT_NAME` — the project name used by your opencloud-compose stack (check your `.env` file; it determines the prefix on Docker networks and volumes)
+- Your `COMPOSE_PROJECT_NAME` — the project name used by your opencloud stack (check your `.env` file; it determines the prefix on Docker networks and volumes)
 
 ---
 
 ## Method A — Sidecar Override (Recommended)
 
-This method drops a single compose override file into your deployment directory. It's self-contained, requires no changes to your existing `docker-compose.yml`, and works with any `opencloud-compose` setup.
+This method drops a single compose override file into your deployment directory. It's self-contained, requires no changes to your existing `docker-compose.yml`, and works with any `opencloud` setup.
 
 ### Step 1 — Download the compose override
 
@@ -98,13 +98,13 @@ The board is available at `https://your-domain.com/feature-voting/board`.
 
 ---
 
-## Method B — COMPOSE_FILE Append (opencloud-compose Modular Pattern)
+## Method B — COMPOSE_FILE Append (opencloud Modular Pattern)
 
-This method matches the convention used by [`opencloud-compose`](https://github.com/opencloud-eu/opencloud-compose) for optional add-ons like Collabora, Radicale, and monitoring. It requires appending a named compose file to your `COMPOSE_FILE` variable rather than using an automatic override.
+This method matches the convention used by [`opencloud`](https://github.com/opencloud-eu/opencloud) for optional add-ons like Collabora, Radicale, and monitoring. It requires appending a named compose file to your `COMPOSE_FILE` variable rather than using an automatic override.
 
 Use this method if:
 - You already manage your compose stack via `COMPOSE_FILE` in `.env`
-- You want to keep your setup consistent with upstream opencloud-compose conventions
+- You want to keep your setup consistent with upstream opencloud conventions
 - You intend to submit a PR to the upstream project
 
 ### Step 1 — Download the named compose file
@@ -263,10 +263,10 @@ Feature Voting is designed and tested against a specific OpenCloud deployment mo
 ### Deployment model
 
 This app assumes OpenCloud is deployed using the official
-[`opencloud-compose`](https://github.com/opencloud-eu/opencloud-compose) Docker Compose stack — specifically, the base `docker-compose.yml` from that repository (version 5.0 or later).
+[`opencloud`](https://github.com/opencloud-eu/opencloud) Docker Compose stack — specifically, the base `docker-compose.yml` from that repository (version 5.0 or later).
 
 ```
-opencloud-compose/
+opencloud/
 ├── docker-compose.yml        ← base stack (required)
 ├── traefik/opencloud.yml     ← recommended (TLS + routing)
 ├── config/

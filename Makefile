@@ -1,6 +1,6 @@
 .PHONY: install build build-watch lint test test-e2e test-go check-types format deploy clean release build-api build-image publish release-all
 
-OC_SERVER_DIR ?= $(HOME)/Sites/opencloud-compose
+OC_SERVER_DIR ?= $(HOME)/Sites/opencloud
 OC_APP_DIR    := $(OC_SERVER_DIR)/config/opencloud/apps/feature-voting
 VERSION       ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 IMAGE         := ghcr.io/performant-labs/opencloud-voting-api
@@ -36,7 +36,7 @@ build-image:
 test:
 	cd web && pnpm test:unit
 
-## Run E2E tests (requires a running [`opencloud-compose`](https://github.com/opencloud-eu/opencloud-compose) instance at `cloud.opencloud.test`)
+## Run E2E tests (requires a running [`opencloud`](https://github.com/opencloud-eu/opencloud) instance at `cloud.opencloud.test`)
 test-e2e:
 	cd web && npx playwright test
 

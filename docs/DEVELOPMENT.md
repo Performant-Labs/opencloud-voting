@@ -99,7 +99,7 @@ brew install hey
 ### 1. Start the OpenCloud stack
 
 ```bash
-cd ~/Sites/opencloud-compose
+cd ~/Sites/opencloud
 docker compose up -d
 ```
 
@@ -123,16 +123,16 @@ make dev
 ```
 
 `make deploy` builds `web/dist/` and copies it to
-`~/Sites/opencloud-compose/config/opencloud/apps/feature-voting/`, then
+`~/Sites/opencloud/config/opencloud/apps/feature-voting/`, then
 restarts the `opencloud` container to pick up the new assets.
 
 ### 4. Start the API sidecar
 
-The sidecar is defined in `opencloud-compose/docker-compose.yml` and builds
+The sidecar is defined in `opencloud/docker-compose.yml` and builds
 from `../opencloud-voting/api`:
 
 ```bash
-cd ~/Sites/opencloud-compose
+cd ~/Sites/opencloud
 docker compose up -d --build voting-app
 ```
 

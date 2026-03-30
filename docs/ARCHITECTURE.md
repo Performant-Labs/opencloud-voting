@@ -208,4 +208,4 @@ This project is licensed under **AGPL-3.0**.
 - [`mattn/go-sqlite3`](https://github.com/mattn/go-sqlite3) — CGO SQLite driver (statically linked against musl)
 - [`coreos/go-oidc/v3`](https://github.com/coreos/go-oidc) — OIDC discovery and JWT verification
 - [SQLite WAL mode](https://www.sqlite.org/wal.html) — write-ahead logging
-- [OpenCloud Compose](https://github.com/opencloud-eu/opencloud-compose) — reference deployment
+- [OpenCloud Compose](https://github.com/opencloud-eu/opencloud) — reference deployment
