@@ -140,34 +140,46 @@ additional code.
 
 ---
 
-## 3. Our Current Approach (Passive Inheritance)
+## 3. Our Current Approach (Hybrid: Tokens + Inheritance)
 
-Because the extension runs inside the OpenCloud shell, which already sets the
-correct text and background colors on the container, we use **passive
-inheritance** as the primary strategy:
+We use a **hybrid strategy**: direct `--oc-role-*` tokens for semantic colors
+(primary, error, borders) and `inherit` + `opacity` for general text, where
+the shell already provides the correct inherited color.
 
 | Element Type          | CSS Pattern                              | Why                                   |
 | --------------------- | ---------------------------------------- | ------------------------------------- |
 | Primary text          | `color: inherit`                         | Gets the shell's on-surface color     |
 | Muted / secondary     | `color: inherit; opacity: 0.6`           | Reduced-contrast variant              |
 | Very muted (meta)     | `color: inherit; opacity: 0.5`           | Even lower contrast                   |
-| Backgrounds           | `background: transparent`                | Inherits shell's surface color        |
-| Borders               | `border-color: var(--oc-role-outline-variant, currentColor)` | Uses token or inherits |
-| Primary buttons       | `background: var(--oc-role-primary); color: var(--oc-role-on-primary)` | Semantic pairing |
-| Error / danger        | Uses `--oc-role-error` tokens            | Semantic pairing                      |
+| Backgrounds (cards)   | `var(--oc-role-surface, transparent)`    | Uses token, falls back to inherit     |
+| Borders               | `var(--oc-role-outline-variant, #BFC8CC)` | Uses official border token           |
+| Primary buttons       | `background: var(--oc-role-primary, #00677F)` | Official primary accent         |
+| Primary button text   | `color: var(--oc-role-on-primary, #fff)` | Semantic text-on-primary pairing      |
+| Hover states          | `filter: brightness(0.85)`               | Darkens primary without a second token |
+| Error banner bg       | `var(--oc-role-error-container, #FFDAD6)` | Semantic error container             |
+| Error text / border   | `var(--oc-role-error, #BA1A1A)`          | Semantic error color                  |
+| Error button text     | `var(--oc-role-on-error, #fff)`          | Semantic text-on-error pairing        |
+| Muted surfaces        | `var(--oc-role-surface-container, #F6F8FA)` | Elevated surface background       |
+| Active/selected       | `var(--oc-role-primary-container, #B7EAFF)` | Primary container for highlights  |
+| Search focus ring     | `border-color: var(--oc-role-primary)`   | Focus indicator                       |
 
-### Why Passive Inheritance Instead of Direct Tokens
+### Variable Migration Map
 
-We observed at runtime that the `--oc-role-*` tokens **are** defined on `:root`
-in the OpenCloud shell, but CSS scoped styles and Vue's `<style scoped>` do not
-always reliably resolve `:root`-level variables in all browsers when deep in the
-component tree. The `inherit` pattern is the most reliable cross-browser approach
-because it uses the cascade directly.
+During development, invented `--oc-color-*` variable names were used.
+They have all been replaced:
 
-> [!TIP]
-> If you later need finer control (e.g. elevated surface-on-surface colors),
-> switch specific properties to the `--oc-role-*` tokens. The tokens work in
-> most cases, but `inherit` is the safest default.
+| Old (Invented — DO NOT USE)              | New (Official)                           |
+| ---------------------------------------- | ---------------------------------------- |
+| `--oc-color-text-default`                | `inherit`                                |
+| `--oc-color-text-muted`                  | `inherit` + `opacity: 0.6`              |
+| `--oc-color-background-default`          | `--oc-role-surface`                      |
+| `--oc-color-background-muted`            | `--oc-role-surface-container`            |
+| `--oc-color-border`                      | `--oc-role-outline-variant`              |
+| `--oc-color-swatch-primary-default`      | `--oc-role-primary`                      |
+| `--oc-color-swatch-primary-hover`        | `--oc-role-primary` + `filter: brightness(0.85)` |
+| `--oc-color-swatch-primary-muted`        | `--oc-role-primary-container`            |
+| `--oc-color-swatch-danger-default`       | `--oc-role-error`                        |
+| `--oc-color-swatch-danger-muted`         | `--oc-role-error-container`              |
 
 ---
 
@@ -197,13 +209,16 @@ The OpenCloud shell imposes layout constraints that extensions must respect:
 
 ## 5. Files Affected
 
-The following files were updated to follow these patterns:
+All CSS across these files now uses only `--oc-role-*` tokens or `inherit`:
 
-| File                                        | Changes                                    |
-| ------------------------------------------- | ------------------------------------------ |
-| `web/src/App.vue`                           | ~20 color/background properties → inherit  |
-| `web/src/NewFeature.vue`                    | 3 color/background properties → inherit    |
-| `web/src/components/Breadcrumbs.vue`        | 3 color properties → inherit               |
+| File                                        | Changes                                         |
+| ------------------------------------------- | ------------------------------------------------ |
+| `web/src/App.vue`                           | ~38 properties migrated to `--oc-role-*` tokens  |
+| `web/src/NewFeature.vue`                    | ~15 properties migrated to `--oc-role-*` tokens  |
+| `web/src/components/Breadcrumbs.vue`        | 3 color properties → `inherit` + `--oc-role-*`   |
+
+Zero `--oc-color-*` references remain. Zero bare `#fff` or hardcoded hex
+values outside of token fallbacks.
 
 ---
 
@@ -237,21 +252,11 @@ To verify theming works:
 
 ## 8. Future Improvements
 
-Once the extension matures, consider migrating from passive `inherit` to direct
-`--oc-role-*` token usage for maximum design fidelity:
-
-```css
-/* Future: Direct token usage for precise M3 compliance */
-.fv-item {
-  background: var(--oc-role-surface-container-low);
-  color: var(--oc-role-on-surface);
-  border: 1px solid var(--oc-role-outline-variant);
-}
-
-.fv-item-desc {
-  color: var(--oc-role-on-surface-variant);
-}
-```
-
-This would give you the subtle surface elevation hierarchy that M3 provides,
-and would eliminate the need for `opacity` hacks on text elements.
+- **Surface elevation hierarchy**: Replace `inherit` text colors with explicit
+  `--oc-role-on-surface` and `--oc-role-on-surface-variant` to eliminate
+  `opacity` hacks and gain Material Design 3 surface elevation hierarchy.
+- **Icon coloring**: File-type icon tokens (`--oc-color-icon-*`) are available
+  and could be used if we add file-type badges to features.
+- **Custom theming**: The `theme.json` file allows admins to override tokens
+  via the `WEB_ASSET_THEMES_PATH` environment variable. Our extension will
+  automatically respect any custom branding.
