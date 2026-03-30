@@ -42,5 +42,8 @@
     "onlyBuiltDependencies": [
       "esbuild"
     ]
+  },
+  "dependencies": {
+    "fuse.js": "^7.1.0"
   }
 }
