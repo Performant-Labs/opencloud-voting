@@ -1,0 +1,47 @@
+name: Bug Report
+description: Report a bug to help us improve Feature Voting.
+title: "bug: [brief description]"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before submitting, please ensure you've checked the documentation and existing issues.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Provide the steps to reproduce the behavior.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. Scroll down to '....'
+        4. See error
+    validations:
+      required: true
+  - type: input
+    id: opencloud_version
+    attributes:
+      label: OpenCloud Version
+      description: "Run: docker inspect opencloud | grep OC_DOCKER_TAG"
+      placeholder: "e.g., 5.2.0"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: "Paste output from: docker compose logs voting-app"
+      render: shell
+  - type: textarea
+    id: browser
+    attributes:
+      label: Browser/Environment
+      description: "e.g., Chrome v120 on macOS"

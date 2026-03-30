@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Vulnerability
+    url: https://github.com/Performant-Labs/opencloud-voting/security/policy
+    about: "DO NOT open a public issue for security bugs. Please report them privately according to our security policy."
