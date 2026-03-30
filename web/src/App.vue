@@ -202,6 +202,7 @@ onUnmounted(() => {
             :key="feature.id"
             class="fv-item"
             :class="{ 'fv-voted': feature.voted }"
+            :data-feature-id="feature.id"
           >
             <div class="fv-vote-block">
               <button

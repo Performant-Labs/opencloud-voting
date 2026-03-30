@@ -235,15 +235,34 @@ export function useVotingApi(options?: {
 
   /**
    * Toggle vote on a feature.
+   * Uses optimistic UI update so the user sees the change immediately
+   * on the correct item, before the server re-sorts by vote_count.
    */
   async function toggleVote(featureId: string): Promise<boolean> {
     error.value = null;
+
+    // Optimistic update: immediately toggle voted state and adjust count
+    // so the user sees feedback on the correct feature before the list
+    // re-sorts from the server response.
+    const target = features.value.find((f) => f.id === featureId);
+    const prevVoted = target?.voted;
+    const prevCount = target?.vote_count;
+    if (target) {
+      target.voted = !target.voted;
+      target.vote_count += target.voted ? 1 : -1;
+    }
+
     try {
       const res = await apiRequest(`/features/${featureId}/vote`, {
         method: "POST",
       });
 
       if (!res.ok) {
+        // Revert optimistic update on failure
+        if (target) {
+          target.voted = prevVoted ?? false;
+          target.vote_count = prevCount ?? 0;
+        }
         const body: ErrorResponse = await res
           .json()
           .catch(() => ({
@@ -254,9 +273,15 @@ export function useVotingApi(options?: {
         return false;
       }
 
+      // Silently reconcile with server state in the background
       await loadFeatures();
       return true;
     } catch (e) {
+      // Revert optimistic update on network error
+      if (target) {
+        target.voted = prevVoted ?? false;
+        target.vote_count = prevCount ?? 0;
+      }
       error.value = (e as Error).message;
       return false;
     }
