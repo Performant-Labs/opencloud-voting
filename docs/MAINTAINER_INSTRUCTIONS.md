@@ -99,16 +99,14 @@ Use [semver](https://semver.org/): `vMAJOR.MINOR.PATCH`.
 
 ## Dependency Maintenance
 
-**Go dependencies** — update and verify no regressions:
-```bash
-cd api && go get -u ./... && go mod tidy && go test ./...
-```
+Dependency updates are automated via [Dependabot](../.github/dependabot.yml).
+Every Monday it opens PRs for:
 
-**Frontend dependencies**:
-```bash
-cd web && pnpm update && pnpm audit
-```
+| Ecosystem | Scope |
+|:----------|:------|
+| Go modules | `api/go.mod` |
+| npm / pnpm | `web/package.json` |
+| Docker base images | `api/Dockerfile` (`golang:1.22-alpine`, `alpine:3.21`) |
 
-**Docker base image** — the `Dockerfile` pins `golang:1.22-alpine` and
-`alpine:3.21`. Check for newer patch releases periodically and update the
-`FROM` lines, then verify `make build-image` still produces a working image.
+Review and merge the PRs. Run `make test && make test-go` before merging if the
+changes touch runtime code (as opposed to dev-only tooling).
