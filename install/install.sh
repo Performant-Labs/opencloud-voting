@@ -46,10 +46,8 @@ OVERRIDE_URL="https://github.com/$REPO/releases/download/$LATEST/docker-compose.
 echo ""
 echo "▶ Downloading docker-compose.override.yml..."
 curl -fsSL "$OVERRIDE_URL" -o ./docker-compose.override.yml
-# Inject the OC_DOMAIN
-sed -i.bak "s|cloud.opencloud.test|$OC_DOMAIN|g" ./docker-compose.override.yml
-rm -f ./docker-compose.override.yml.bak
-echo "  ✓ docker-compose.override.yml written (OC_DOMAIN=$OC_DOMAIN)"
+echo "  ✓ docker-compose.override.yml written"
+echo "    (OC_DOMAIN is read from your .env file at runtime — default: cloud.opencloud.test)"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

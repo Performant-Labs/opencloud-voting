@@ -1,6 +1,6 @@
-.PHONY: install build build-watch lint test test-e2e test-go check-types format deploy clean release build-api build-image publish release-all
+.PHONY: install build build-watch lint test test-e2e test-go check-types format deploy uninstall clean release build-api build-image publish release-all
 
-OC_SERVER_DIR ?= $(HOME)/Sites/opencloud
+OC_SERVER_DIR ?= $(HOME)/Sites/pl-opencloud-server
 OC_APP_DIR    := $(OC_SERVER_DIR)/config/opencloud/apps/feature-voting
 VERSION       ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 IMAGE         := ghcr.io/performant-labs/opencloud-voting-api
@@ -38,7 +38,7 @@ test:
 
 ## Run E2E tests (requires a running [`opencloud`](https://github.com/opencloud-eu/opencloud) instance at `cloud.opencloud.test`)
 test-e2e:
-	cd web && npx playwright test
+	cd web && ADMIN_PASSWORD="$(ADMIN_PASSWORD)" npx playwright test
 
 ## Run Go unit tests
 test-go:
@@ -74,12 +74,14 @@ release: build
 	@cd web/dist && zip -r ../../dist/feature-voting-web-$(VERSION).zip .
 	@cp install/docker-compose.override.yml dist/
 	@cp install/opencloud.yml dist/
+	@cp install/proxy.yaml dist/
 	@cp install/install.sh dist/
 	@echo ""
 	@echo "→ Release assets ready in dist/:"
 	@ls -lh dist/feature-voting-web-$(VERSION).zip \
 	         dist/docker-compose.override.yml \
 	         dist/opencloud.yml \
+	         dist/proxy.yaml \
 	         dist/install.sh
 
 ## Create GitHub Release, upload assets, build & push Docker image to GHCR.
@@ -106,6 +108,7 @@ publish: release build-image
 	  dist/feature-voting-web-$(VERSION).zip \
 	  dist/docker-compose.override.yml \
 	  dist/opencloud.yml \
+	  dist/proxy.yaml \
 	  dist/install.sh
 	@echo ""
 	@echo "→ Pushing Docker image to GHCR..."
@@ -121,3 +124,22 @@ publish: release build-image
 
 ## One-shot: package + publish. Usage: make release-all VERSION=v0.1.0
 release-all: publish
+
+## Uninstall Feature Voting from the local OpenCloud instance
+## Usage: make uninstall  (or: make uninstall OC_SERVER_DIR=~/Sites/my-opencloud)
+uninstall:
+	@echo "→ Stopping voting-app container..."
+	-cd $(OC_SERVER_DIR) && docker compose stop voting-app && docker compose rm -f voting-app
+	@echo "→ Removing web extension..."
+	rm -rf $(OC_APP_DIR)
+	@echo "→ Removing compose overlay..."
+	rm -rf $(OC_SERVER_DIR)/feature-voting
+	rm -f $(OC_SERVER_DIR)/docker-compose.override.yml
+	@echo ""
+	@echo "→ Done. Manual steps remaining:"
+	@echo "  1. Edit $(OC_SERVER_DIR)/.env — remove :feature-voting/opencloud.yml from COMPOSE_FILE"
+	@echo "  2. Edit $(OC_SERVER_DIR)/config/opencloud/proxy.yaml — remove the /api/voting/ route"
+	@echo "  3. cd $(OC_SERVER_DIR) && docker compose restart opencloud"
+	@echo ""
+	@echo "  To also delete all voting data:"
+	@echo "    docker volume rm \$$(docker volume ls -q | grep voting-data)"

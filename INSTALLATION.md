@@ -98,29 +98,27 @@ ls config/opencloud/apps/feature-voting/
 
 ### Step 3 — Add the proxy route
 
-OpenCloud needs to know where to send Feature Voting API requests. Create (or edit) the file `config/opencloud/proxy.yaml`.
+OpenCloud needs to know where to send Feature Voting API requests.
+
+**If you do NOT already have a `config/opencloud/proxy.yaml`** (most users), download the template:
+
+```bash
+mkdir -p config/opencloud
+curl -fsSL \
+  https://github.com/Performant-Labs/opencloud-voting/releases/latest/download/proxy.yaml \
+  -o config/opencloud/proxy.yaml
+```
+
+**If the file already exists** (e.g. you have Radicale or another add-on), add these lines at the end of the existing `routes:` list:
+
+```yaml
+      # Feature Voting API sidecar
+      - endpoint: /api/voting/
+        backend: http://voting-app:8080
+```
 
 > [!NOTE]
-> The compose file you downloaded in Step 1 automatically mounts this file into the OpenCloud container. You just need to create it on disk.
-
-**If the file already exists** (e.g. you have Radicale or another add-on), add the following lines at the end of the existing `routes:` list:
-
-```yaml
-      # Feature Voting API sidecar
-      - endpoint: /api/voting/
-        backend: http://voting-app:8080
-```
-
-**If the file does not exist**, create it with this content:
-
-```yaml
-additional_policies:
-  - name: default
-    routes:
-      # Feature Voting API sidecar
-      - endpoint: /api/voting/
-        backend: http://voting-app:8080
-```
+> The compose file you downloaded in Step 1 automatically mounts `config/opencloud/proxy.yaml` into the OpenCloud container.
 
 > [!WARNING]
 > YAML is sensitive to indentation. The `endpoint` and `backend` lines must be indented with **spaces** (not tabs), matching the indentation shown above.
@@ -302,16 +300,46 @@ docker volume rm $(docker volume ls -q | grep voting-data)
 
 ---
 
-## One-Liner Install (Method B only)
+## Quick Install (Method A)
 
-This script automates Steps 1–2 of Method B (downloads the compose override and deploys the frontend). You still need to complete Steps 3–6 manually afterward. Review the script before running it.
+This script automates Steps 1–3 of Method A. You still need to complete Steps 4–6 manually afterward.
 
 ```bash
 cd /path/to/your/opencloud-compose
 
-OC_DOMAIN=cloud.example.com \
-  curl -fsSL \
-    https://raw.githubusercontent.com/Performant-Labs/opencloud-voting/main/install/install.sh \
+# Download compose overlay + proxy template + frontend assets
+mkdir -p feature-voting config/opencloud
+
+VERSION=$(curl -fsSL https://api.github.com/repos/Performant-Labs/opencloud-voting/releases/latest \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
+
+curl -fsSL "https://github.com/Performant-Labs/opencloud-voting/releases/download/$VERSION/opencloud.yml" \
+  -o feature-voting/opencloud.yml
+
+curl -fsSL "https://github.com/Performant-Labs/opencloud-voting/releases/download/$VERSION/proxy.yaml" \
+  -o config/opencloud/proxy.yaml
+
+curl -fsSL "https://github.com/Performant-Labs/opencloud-voting/releases/download/$VERSION/feature-voting-web-${VERSION}.zip" \
+  -o /tmp/fv.zip
+mkdir -p config/opencloud/apps/feature-voting
+unzip -q -o /tmp/fv.zip -d config/opencloud/apps/feature-voting
+rm /tmp/fv.zip
+
+echo "✓ Files downloaded. Now:"
+echo "  1. Add :feature-voting/opencloud.yml to COMPOSE_FILE in .env"
+echo "  2. If needed, set OC_DOMAIN in .env"
+echo "  3. docker compose up -d voting-app && docker compose restart opencloud"
+```
+
+## Quick Install (Method B)
+
+This script automates Steps 1–2 of Method B. You still need to complete Steps 3–6 manually afterward. Review the script before running it.
+
+```bash
+cd /path/to/your/opencloud-compose
+
+curl -fsSL \
+  https://raw.githubusercontent.com/Performant-Labs/opencloud-voting/main/install/install.sh \
   | bash
 ```
 

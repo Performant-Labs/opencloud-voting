@@ -1,0 +1,6 @@
+additional_policies:
+  - name: default
+    routes:
+      # Feature Voting API sidecar
+      - endpoint: /api/voting/
+        backend: http://voting-app:8080

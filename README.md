@@ -135,7 +135,7 @@ comments: id, feature_id, user_id, body, created_at
 | **API** | Go 1.22, `net/http` (stdlib only — no framework) |
 | **Database** | SQLite (WAL mode) via `mattn/go-sqlite3` (CGO, statically linked against musl) |
 | **Auth** | OIDC JWT verification via `coreos/go-oidc/v3` |
-| **Testing** | Playwright E2E (18 tests), Go unit tests, `hey` load tests |
+| **Testing** | Playwright E2E (19 tests), Go unit tests, `hey` load tests |
 
 ---
 
@@ -147,9 +147,11 @@ Requires a live `cloud.opencloud.test` environment.
 
 ```bash
 cd web
-npx playwright test
-# 18 tests across 4 suites: comments, smoke, vote-targeting, voting
+ADMIN_PASSWORD=YourAdminPassword npx playwright test
+# 19 tests across 5 suites: comments, smoke, vote-targeting, voting, get-admin-token
 ```
+
+> If your admin password is `admin` (the default), you can omit `ADMIN_PASSWORD`.
 
 ### Go Unit Tests
 

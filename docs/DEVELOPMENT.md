@@ -29,7 +29,7 @@ opencloud-voting/
 │   │   ├── types.ts            # Shared TypeScript types
 │   │   └── index.ts            # Extension entry point
 │   ├── tests/
-│   │   ├── e2e/                # Playwright E2E suite (18 tests across 4 specs)
+│   │   ├── e2e/                # Playwright E2E suite (19 tests across 5 specs)
 │   │   │   ├── comments.spec.ts
 │   │   │   ├── smoke.spec.ts
 │   │   │   ├── vote-targeting.spec.ts
@@ -40,8 +40,8 @@ opencloud-voting/
 │   └── package.json
 │
 ├── install/                    # Release packaging artifacts
-│   ├── docker-compose.override.yml   # Method A install file
-│   ├── opencloud.yml                 # Method B install file
+│   ├── docker-compose.override.yml   # Method B install file (override)
+│   ├── opencloud.yml                 # Method A install file (COMPOSE_FILE append)
 │   └── install.sh                    # One-liner install script
 │
 ├── docs/                       # Project documentation
@@ -98,12 +98,14 @@ brew install hey
 
 ### 1. Start the OpenCloud stack
 
+Start your OpenCloud deployment (the directory containing `docker-compose.yml` and `.env`):
+
 ```bash
-cd ~/Sites/opencloud
+cd /path/to/your/opencloud-compose   # e.g. ~/Sites/pl-opencloud-server
 docker compose up -d
 ```
 
-OpenCloud will be available at `https://cloud.opencloud.test`.
+OpenCloud will be available at `https://cloud.opencloud.test` (or your configured domain).
 
 ### 2. Install frontend dependencies
 
@@ -123,16 +125,16 @@ make dev
 ```
 
 `make deploy` builds `web/dist/` and copies it to
-`~/Sites/opencloud/config/opencloud/apps/feature-voting/`, then
+`$(OC_SERVER_DIR)/config/opencloud/apps/feature-voting/`, then
 restarts the `opencloud` container to pick up the new assets.
+Override the path: `make deploy OC_SERVER_DIR=~/Sites/pl-opencloud-server`
 
 ### 4. Start the API sidecar
 
-The sidecar is defined in `opencloud/docker-compose.yml` and builds
-from `../opencloud-voting/api`:
+The sidecar runs as a Docker container alongside OpenCloud:
 
 ```bash
-cd ~/Sites/opencloud
+cd /path/to/your/opencloud-compose
 docker compose up -d --build voting-app
 ```
 
@@ -154,6 +156,7 @@ make lint           ESLint on frontend
 make check-types    TypeScript type check
 make format         Prettier format write
 make clean          Remove web/dist, node_modules, api binary, dist/
+make uninstall      Remove Feature Voting from the local OpenCloud instance
 make release        Package release assets → dist/
 make publish        Full publish: release + build-image + GitHub Release + GHCR push
 make release-all    Alias for publish (one-shot)
@@ -187,7 +190,7 @@ make test-e2e
 # or: cd web && npx playwright test --reporter=list
 ```
 
-The suite has 18 tests across 4 spec files. See `docs/TESTING_INSTRUCTIONS.md`
+The suite has 19 tests across 5 spec files. See `docs/TESTING_INSTRUCTIONS.md`
 for the full harness setup including user provisioning.
 
 ### Load tests

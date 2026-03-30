@@ -63,5 +63,3 @@ networks:
 # Voting data volume (separate from the main OpenCloud volumes)
 volumes:
   voting-data:
-    external: true
-    name: ${COMPOSE_PROJECT_NAME}_voting-data
