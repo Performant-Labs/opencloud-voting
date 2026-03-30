@@ -122,10 +122,10 @@ async function handleSubmit() {
   gap: 12px;
   padding: 10px 14px;
   margin-bottom: 20px;
-  background: var(--oc-color-swatch-danger-muted, #fef2f2);
-  border: 1px solid var(--oc-color-swatch-danger-default, #ef4444);
+  background: var(--oc-role-error-container, #FFDAD6);
+  border: 1px solid var(--oc-role-error, #BA1A1A);
   border-radius: 8px;
-  color: var(--oc-color-swatch-danger-default, #dc2626);
+  color: var(--oc-role-error, #BA1A1A);
   font-size: 0.9rem;
 }
 .fv-error-dismiss {
@@ -140,14 +140,14 @@ async function handleSubmit() {
   flex-shrink: 0;
 }
 .fv-error-dismiss:hover {
-  background: var(--oc-color-swatch-danger-default, #ef4444);
-  color: #fff;
+  background: var(--oc-role-error, #BA1A1A);
+  color: var(--oc-role-on-error, #fff);
 }
 
 /* Submit form */
 .fv-submit-form {
-  background: var(--oc-color-background-default, transparent);
-  border: 1px solid var(--oc-color-border, #e5e7eb);
+  background: var(--oc-role-surface, transparent);
+  border: 1px solid var(--oc-role-outline-variant, #BFC8CC);
   border-radius: 8px;
   padding: 20px;
   margin-bottom: 32px;
@@ -157,9 +157,9 @@ async function handleSubmit() {
   width: 100%;
   margin-bottom: 12px;
   padding: 10px 12px;
-  border: 1px solid var(--oc-color-border, #d1d5db);
+  border: 1px solid var(--oc-role-outline-variant, #BFC8CC);
   border-radius: 6px;
-  background: var(--oc-color-background-default, transparent);
+  background: var(--oc-role-surface, transparent);
   color: inherit;
   font-size: 0.95rem;
   box-sizing: border-box;
@@ -168,7 +168,7 @@ async function handleSubmit() {
 .fv-input:focus,
 .fv-textarea:focus {
   outline: none;
-  border-color: var(--oc-color-swatch-primary-default, #6366f1);
+  border-color: var(--oc-role-primary, #00677F);
 }
 .fv-input:disabled,
 .fv-textarea:disabled {
@@ -187,8 +187,8 @@ async function handleSubmit() {
   padding: 8px 20px;
   border: none;
   border-radius: 6px;
-  background: var(--oc-color-swatch-primary-default, #6366f1);
-  color: #fff;
+  background: var(--oc-role-primary, #00677F);
+  color: var(--oc-role-on-primary, #fff);
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
@@ -197,7 +197,8 @@ async function handleSubmit() {
     opacity 0.15s;
 }
 .fv-btn-primary:hover:not(:disabled) {
-  background: var(--oc-color-swatch-primary-hover, #4f46e5);
+  background: var(--oc-role-primary, #00677F);
+  filter: brightness(0.85);
 }
 .fv-btn-primary:disabled {
   opacity: 0.6;
@@ -205,9 +206,9 @@ async function handleSubmit() {
 }
 .fv-btn-secondary {
   padding: 8px 20px;
-  border: 1px solid var(--oc-color-border, #d1d5db);
+  border: 1px solid var(--oc-role-outline-variant, #BFC8CC);
   border-radius: 6px;
-  background: var(--oc-color-background-default, transparent);
+  background: var(--oc-role-surface, transparent);
   color: inherit;
   font-size: 0.95rem;
   font-weight: 600;
@@ -217,14 +218,14 @@ async function handleSubmit() {
     opacity 0.15s;
 }
 .fv-btn-secondary:hover:not(:disabled) {
-  background: var(--oc-color-background-muted, #f3f4f6);
+  background: var(--oc-role-surface-container, #F6F8FA);
 }
 .fv-btn-secondary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 .fv-error {
-  color: var(--oc-color-swatch-danger-default, #ef4444);
+  color: var(--oc-role-error, #BA1A1A);
   margin-top: 6px;
   font-size: 0.9rem;
 }

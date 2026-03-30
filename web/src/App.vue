@@ -397,10 +397,10 @@ onUnmounted(() => {
   gap: 12px;
   padding: 10px 14px;
   margin-bottom: 20px;
-  background: var(--oc-color-swatch-danger-muted, #fef2f2);
-  border: 1px solid var(--oc-color-swatch-danger-default, #ef4444);
+  background: var(--oc-role-error-container, #FFDAD6);
+  border: 1px solid var(--oc-role-error, #BA1A1A);
   border-radius: 8px;
-  color: var(--oc-color-swatch-danger-default, #dc2626);
+  color: var(--oc-role-error, #BA1A1A);
   font-size: 0.9rem;
 }
 .fv-error-dismiss {
@@ -415,16 +415,16 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 .fv-error-dismiss:hover {
-  background: var(--oc-color-swatch-danger-default, #ef4444);
-  color: #fff;
+  background: var(--oc-role-error, #BA1A1A);
+  color: var(--oc-role-on-error, #fff);
 }
 
 .fv-btn-primary {
   padding: 8px 20px;
   border: none;
   border-radius: 6px;
-  background: var(--oc-color-swatch-primary-default, #6366f1);
-  color: #fff;
+  background: var(--oc-role-primary, #00677F);
+  color: var(--oc-role-on-primary, #fff);
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
@@ -433,7 +433,8 @@ onUnmounted(() => {
     opacity 0.15s;
 }
 .fv-btn-primary:hover:not(:disabled) {
-  background: var(--oc-color-swatch-primary-hover, #4f46e5);
+  background: var(--oc-role-primary, #00677F);
+  filter: brightness(0.85);
 }
 .fv-btn-primary:disabled {
   opacity: 0.6;
@@ -466,10 +467,10 @@ onUnmounted(() => {
 .fv-search-input {
   width: 100%;
   padding: 10px 14px;
-  border: 1px solid var(--oc-color-border, #d1d5db);
+  border: 1px solid var(--oc-role-outline-variant, #BFC8CC);
   border-radius: 6px;
   font-size: 1rem;
-  background: var(--oc-color-background-default, transparent);
+  background: var(--oc-role-surface, transparent);
   color: inherit;
   transition:
     border-color 0.15s,
@@ -477,8 +478,8 @@ onUnmounted(() => {
 }
 .fv-search-input:focus {
   outline: none;
-  border-color: var(--oc-color-swatch-primary-default, #6366f1);
-  box-shadow: 0 0 0 2px var(--oc-color-swatch-primary-muted, #eef2ff);
+  border-color: var(--oc-role-primary, #00677F);
+  box-shadow: 0 0 0 2px var(--oc-role-primary-container, #B7EAFF);
 }
 
 /* Feature list */
@@ -494,14 +495,14 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  background: var(--oc-color-background-default, transparent);
-  border: 1px solid var(--oc-color-border, #e5e7eb);
+  background: var(--oc-role-surface, transparent);
+  border: 1px solid var(--oc-role-outline-variant, #BFC8CC);
   border-radius: 8px;
   padding: 14px 16px;
   transition: border-color 0.15s;
 }
 .fv-item:hover {
-  border-color: var(--oc-color-swatch-primary-default, #6366f1);
+  border-color: var(--oc-role-primary, #00677F);
 }
 
 /* Vote block */
@@ -514,7 +515,7 @@ onUnmounted(() => {
 }
 .fv-vote-btn {
   background: none;
-  border: 1px solid var(--oc-color-border, #d1d5db);
+  border: 1px solid var(--oc-role-outline-variant, #BFC8CC);
   border-radius: 6px;
   padding: 4px 8px;
   cursor: pointer;
@@ -532,18 +533,18 @@ onUnmounted(() => {
   fill: currentColor;
 }
 .fv-vote-btn:hover {
-  background: var(--oc-color-swatch-primary-muted, #eef2ff);
-  color: var(--oc-color-swatch-primary-default, #6366f1);
-  border-color: var(--oc-color-swatch-primary-default, #6366f1);
+  background: var(--oc-role-primary-container, #B7EAFF);
+  color: var(--oc-role-primary, #00677F);
+  border-color: var(--oc-role-primary, #00677F);
 }
 .fv-vote-btn:active {
   transform: scale(0.92);
 }
 .fv-voted .fv-vote-btn,
 .fv-voted-btn {
-  background: var(--oc-color-swatch-primary-default, #6366f1);
-  color: #fff;
-  border-color: var(--oc-color-swatch-primary-default, #6366f1);
+  background: var(--oc-role-primary, #00677F);
+  color: var(--oc-role-on-primary, #fff);
+  border-color: var(--oc-role-primary, #00677F);
 }
 .fv-vote-disabled {
   opacity: 0.35;
@@ -613,8 +614,8 @@ onUnmounted(() => {
 }
 .fv-actions-trigger:hover {
   color: inherit;
-  background: var(--oc-color-background-muted, #f3f4f6);
-  border-color: var(--oc-color-border, #d1d5db);
+  background: var(--oc-role-surface-container, #F6F8FA);
+  border-color: var(--oc-role-outline-variant, #BFC8CC);
 }
 
 .fv-actions-menu {
@@ -624,8 +625,8 @@ onUnmounted(() => {
   z-index: 100;
   min-width: 160px;
   margin-top: 4px;
-  background: var(--oc-color-background-default, transparent);
-  border: 1px solid var(--oc-color-border, #e5e7eb);
+  background: var(--oc-role-surface, transparent);
+  border: 1px solid var(--oc-role-outline-variant, #BFC8CC);
   border-radius: 10px;
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.08),
@@ -666,13 +667,13 @@ onUnmounted(() => {
     color 0.12s;
 }
 .fv-action-item:hover {
-  background: var(--oc-color-background-muted, #f3f4f6);
+  background: var(--oc-role-surface-container, #F6F8FA);
 }
 .fv-action-danger {
-  color: var(--oc-color-swatch-danger-default, #ef4444);
+  color: var(--oc-role-error, #BA1A1A);
 }
 .fv-action-danger:hover {
-  background: var(--oc-color-swatch-danger-muted, #fef2f2);
+  background: var(--oc-role-error-container, #FFDAD6);
 }
 
 /* Footer row: date + comment toggle */
@@ -689,7 +690,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 5px;
   padding: 3px 8px;
-  border: 1px solid var(--oc-color-border, #d1d5db);
+  border: 1px solid var(--oc-role-outline-variant, #BFC8CC);
   border-radius: 20px;
   background: none;
   cursor: pointer;
@@ -699,15 +700,15 @@ onUnmounted(() => {
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 .fv-comments-toggle:hover {
-  border-color: var(--oc-color-swatch-primary-default, #6366f1);
-  color: var(--oc-color-swatch-primary-default, #6366f1);
-  background: var(--oc-color-swatch-primary-muted, #eef2ff);
+  border-color: var(--oc-role-primary, #00677F);
+  color: var(--oc-role-primary, #00677F);
+  background: var(--oc-role-primary-container, #B7EAFF);
 }
 
 /* Comment section */
 .fv-comments {
   margin-top: 12px;
-  border-top: 1px solid var(--oc-color-border, #e5e7eb);
+  border-top: 1px solid var(--oc-role-outline-variant, #BFC8CC);
   padding-top: 12px;
 }
 .fv-comments-loading,
@@ -741,7 +742,7 @@ onUnmounted(() => {
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--oc-color-swatch-danger-default, #ef4444);
+  color: var(--oc-role-error, #BA1A1A);
   font-size: 0.75rem;
   padding: 1px 4px;
   border-radius: 4px;
@@ -750,7 +751,7 @@ onUnmounted(() => {
   transition: background 0.15s;
 }
 .fv-comment-delete:hover {
-  background: var(--oc-color-swatch-danger-muted, #fef2f2);
+  background: var(--oc-role-error-container, #FFDAD6);
 }
 .fv-comment-body {
   font-size: 0.88rem;
@@ -770,18 +771,18 @@ onUnmounted(() => {
 .fv-comment-input {
   flex: 1;
   padding: 7px 10px;
-  border: 1px solid var(--oc-color-border, #d1d5db);
+  border: 1px solid var(--oc-role-outline-variant, #BFC8CC);
   border-radius: 6px;
   font-size: 0.88rem;
   font-family: inherit;
   resize: vertical;
-  background: var(--oc-color-background-default, transparent);
+  background: var(--oc-role-surface, transparent);
   color: inherit;
   transition: border-color 0.15s;
 }
 .fv-comment-input:focus {
   outline: none;
-  border-color: var(--oc-color-swatch-primary-default, #6366f1);
+  border-color: var(--oc-role-primary, #00677F);
 }
 .fv-comment-submit {
   padding: 7px 14px;

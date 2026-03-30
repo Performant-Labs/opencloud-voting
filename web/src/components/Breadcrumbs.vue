@@ -68,7 +68,7 @@ defineProps<{
   transition: color 0.15s ease, opacity 0.15s ease;
 }
 .fv-breadcrumb-link:hover {
-  color: var(--oc-color-swatch-primary-default, #6366f1);
+  color: var(--oc-role-primary, #00677F);
   opacity: 1;
 }
 .fv-breadcrumb-separator {
