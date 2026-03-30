@@ -60,38 +60,12 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture decis
 
 ---
 
-## Quick Start
+## Installation
 
-### 1. Build & deploy the frontend
+See **[INSTALLATION.md](INSTALLATION.md)** for full instructions, including:
 
-```bash
-cd web
-pnpm install
-pnpm build
-cp -r dist/* ../pl-opencloud-server/config/opencloud/apps/feature-voting/
-```
-
-### 2. Build & start the Go sidecar
-
-```bash
-cd api
-go build -o voting-app .
-
-# Or via Docker Compose (from pl-opencloud-server):
-docker compose up -d --build voting-app
-```
-
-### 3. Configure the proxy route
-
-Add to `pl-opencloud-server/config/opencloud/proxy.yaml`:
-
-```yaml
-policy:
-  - selector:
-      type: regex
-      matcher: "^/api/voting"
-    backend: "http://voting-app:8080"
-```
+- **Method A — Sidecar Override** (recommended): drop a single compose override file into your deployment directory
+- **Method B — COMPOSE_FILE Append**: upstream-aligned method matching opencloud-compose conventions (Collabora, Radicale, etc.)
 
 ---
 

@@ -1,0 +1,21 @@
+services:
+  voting-app:
+    image: ghcr.io/performant-labs/opencloud-voting-api:latest
+    networks:
+      - opencloud-net
+    environment:
+      OC_OIDC_ISSUER: "https://${OC_DOMAIN:-cloud.opencloud.test}"
+      DB_PATH: "/data/feature-voting.sqlite"
+      OC_DB_URL: "${VOTING_DB_URL:-}"
+      OC_LOG_LEVEL: "${LOG_LEVEL:-info}"
+    volumes:
+      - shared-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    logging:
+      driver: "${LOG_DRIVER:-local}"
