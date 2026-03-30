@@ -131,6 +131,10 @@ onMounted(() => {
   document.addEventListener("click", handleClickOutside)
 })
 
+function navigateToNew() {
+  window.location.href = '/feature-voting/new'
+}
+
 onUnmounted(() => {
   document.removeEventListener("click", handleClickOutside)
 })
@@ -149,7 +153,7 @@ onUnmounted(() => {
         </div>
         <button
           class="fv-btn-primary"
-          @click="$router.push({ name: 'new-feature' })"
+          @click="navigateToNew()"
         >
           Suggest a Feature
         </button>

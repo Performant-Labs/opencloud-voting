@@ -3,7 +3,6 @@ import { ref } from "vue"
 import { useAuthStore } from "@opencloud-eu/web-pkg"
 import { useVotingApi } from "./composables/useVotingApi"
 import Breadcrumbs from "./components/Breadcrumbs.vue"
-import { useRouter } from "vue-router"
 
 const breadcrumbs = [
   { label: 'Home', to: '/' },
@@ -11,7 +10,6 @@ const breadcrumbs = [
   { label: 'Suggest a Feature' }
 ]
 
-const router = useRouter()
 const authStore = useAuthStore()
 const getAccessToken = () => (authStore as any).accessToken
 
@@ -23,6 +21,10 @@ const newTitle = ref("")
 const newDescription = ref("")
 const formError = ref("")
 
+function navigateToBoard() {
+  window.location.href = '/feature-voting/board'
+}
+
 async function handleSubmit() {
   formError.value = ""
   const title = newTitle.value.trim()
@@ -33,7 +35,7 @@ async function handleSubmit() {
 
   const success = await createFeature(title, newDescription.value.trim())
   if (success) {
-    router.push({ name: 'voting-board' })
+    navigateToBoard()
   } else if (error.value) {
     formError.value = error.value
   }
@@ -87,7 +89,7 @@ async function handleSubmit() {
             type="button"
             class="fv-btn-secondary"
             :disabled="submitting"
-            @click="$router.push({ name: 'voting-board' })"
+            @click="navigateToBoard()"
           >
             Cancel
           </button>
