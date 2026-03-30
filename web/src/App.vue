@@ -455,8 +455,8 @@ onUnmounted(() => {
 }
 .fv-loading,
 .fv-empty {
-  color: inherit;
-  opacity: 0.6;
+  /* #767676 = exactly 4.5:1 on white — WCAG AA minimum */
+  color: #767676;
   padding: 16px 0;
 }
 
@@ -575,8 +575,8 @@ onUnmounted(() => {
   word-break: break-word;
 }
 .fv-item-meta {
-  color: inherit;
-  opacity: 0.5;
+  /* !important: outbids OpenCloud shell cascade — token resolves to #8c8e8e (3.29:1, fails WCAG AA) */
+  color: #767676 !important;
   font-size: 0.8rem;
 }
 
