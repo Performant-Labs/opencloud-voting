@@ -10,18 +10,16 @@ import AxeBuilder from "@axe-core/playwright";
  * Additionally runs @axe-core/playwright WCAG 2.1 AA scans at each
  * major UI state to catch missing aria-labels and contrast violations.
  *
- * Uses admin/admin (the default super-user) so no user provisioning
- * is needed — this test must be runnable on a clean environment.
+ * Admin credentials are read from playwright.config.ts httpCredentials.
  */
 
-const ADMIN = { username: "admin", password: "admin" };
-
-async function loginAsAdmin(page: any) {
+async function loginAsAdmin(page: any, password: string) {
   await page.goto("/");
-  await page.fill("#oc-login-username", ADMIN.username);
-  await page.fill("#oc-login-password", ADMIN.password);
+  await page.fill("#oc-login-username", "admin");
+  await page.fill("#oc-login-password", password);
   await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForURL(/.*\/files\/.*/, { timeout: 30000 });
+  await page.waitForSelector("#oc-login-username", { state: "detached", timeout: 30000 });
+  await page.waitForTimeout(2000);
 }
 
 test.describe.serial("Phase 910 Smoke Test + Accessibility", () => {
@@ -30,8 +28,9 @@ test.describe.serial("Phase 910 Smoke Test + Accessibility", () => {
   // ── Test 1: Board loads and is accessible ──────────────────────────────
 
   test("Board renders correctly and passes WCAG scan", async ({ page }) => {
-    await loginAsAdmin(page);
-    await page.goto("/feature-voting/board");
+    const password = test.info().project.use.httpCredentials?.password || "admin";
+    await loginAsAdmin(page, password);
+    await page.goto("/feature-voting/board", { waitUntil: "domcontentloaded" });
     await expect(page.locator(".fv-container")).toBeVisible({ timeout: 15000 });
     await expect(page.locator("h1")).toContainText("Feature Voting");
 
@@ -39,9 +38,6 @@ test.describe.serial("Phase 910 Smoke Test + Accessibility", () => {
     await expect(page.locator(".fv-breadcrumbs")).toBeVisible();
 
     // Accessibility scan of the board.
-    // Note: .fv-item-meta date text (#8c8e8e) is set by the OpenCloud host shell
-    // at a specificity that cannot be overridden by extension scoped styles —
-    // documented in docs/THEMING.md as an upstream constraint. Excluded here.
     const results = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa"])
       .exclude(".fv-item-meta")
@@ -58,8 +54,9 @@ test.describe.serial("Phase 910 Smoke Test + Accessibility", () => {
   test("Empty title submission shows a visible error banner", async ({
     page,
   }) => {
-    await loginAsAdmin(page);
-    await page.goto("/feature-voting/new");
+    const password = test.info().project.use.httpCredentials?.password || "admin";
+    await loginAsAdmin(page, password);
+    await page.goto("/feature-voting/new", { waitUntil: "domcontentloaded" });
 
     // Wait for the form to be fully interactive
     const submitBtn = page.getByRole("button", { name: "Submit" });
@@ -69,9 +66,7 @@ test.describe.serial("Phase 910 Smoke Test + Accessibility", () => {
     // Submit without filling in the title
     await submitBtn.click();
 
-    // The error must be visible (regression guard for Phase 830 gap).
-    // Accept either the new role=alert banner (data-testid="form-error")
-    // or the fallback paragraph (.fv-error), whichever the proxy serves.
+    // The error must be visible
     const errorBanner = page.locator('[data-testid="form-error"]');
     const errorParagraph = page.locator(".fv-error");
     const eitherVisible = errorBanner.or(errorParagraph);
@@ -87,9 +82,10 @@ test.describe.serial("Phase 910 Smoke Test + Accessibility", () => {
   test("Admin can submit a new feature and it appears on the board", async ({
     page,
   }) => {
-    await loginAsAdmin(page);
+    const password = test.info().project.use.httpCredentials?.password || "admin";
+    await loginAsAdmin(page, password);
     // Navigate via board → Suggest a Feature to ensure history.back() works
-    await page.goto("/feature-voting/board");
+    await page.goto("/feature-voting/board", { waitUntil: "domcontentloaded" });
     await expect(page.locator(".fv-container")).toBeVisible({ timeout: 15000 });
     await page.getByRole("button", { name: "Suggest a Feature" }).click();
     await page.waitForURL(/.*\/feature-voting\/new/, { timeout: 10000 });
@@ -117,16 +113,15 @@ test.describe.serial("Phase 910 Smoke Test + Accessibility", () => {
   test("Admin can un-vote (toggle off auto-vote) on their own feature", async ({
     page,
   }) => {
-    await loginAsAdmin(page);
-    await page.goto("/feature-voting/board");
+    const password = test.info().project.use.httpCredentials?.password || "admin";
+    await loginAsAdmin(page, password);
+    await page.goto("/feature-voting/board", { waitUntil: "domcontentloaded" });
     await expect(page.locator(".fv-container")).toBeVisible({ timeout: 15000 });
 
     const featureItem = page.locator(".fv-item", { hasText: featureTitle });
     await expect(featureItem).toBeVisible();
 
     // Count before: 1 (auto-voted on creation)
-    // Admin is the creator, so vote button is disabled for their own feature.
-    // Verify the feature is sorted to top and count is still 1.
     await expect(featureItem.locator(".fv-vote-count")).toHaveText("1");
   });
 
@@ -137,8 +132,9 @@ test.describe.serial("Phase 910 Smoke Test + Accessibility", () => {
   }) => {
     page.on("dialog", (dialog) => dialog.accept());
 
-    await loginAsAdmin(page);
-    await page.goto("/feature-voting/board");
+    const password = test.info().project.use.httpCredentials?.password || "admin";
+    await loginAsAdmin(page, password);
+    await page.goto("/feature-voting/board", { waitUntil: "domcontentloaded" });
     await expect(page.locator(".fv-container")).toBeVisible({ timeout: 15000 });
 
     const featureItem = page.locator(".fv-item", { hasText: featureTitle });

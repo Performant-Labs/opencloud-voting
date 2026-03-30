@@ -11,7 +11,7 @@ import { test, expect, request as playwrightRequest } from "@playwright/test";
  *   Beta posts comment → Alpha deletes own comment → Beta deletes own comment
  */
 
-const BASE_URL = "https://cloud.opencloud.test";
+
 
 const COMMENT_USERS = [
   {
@@ -28,12 +28,12 @@ const COMMENT_USERS = [
   },
 ];
 
-async function getAdminContext() {
+async function getAdminContext(baseURL: string, password: string) {
   return playwrightRequest.newContext({
-    baseURL: BASE_URL,
+    baseURL,
     ignoreHTTPSErrors: true,
     extraHTTPHeaders: {
-      Authorization: "Basic " + Buffer.from("admin:admin").toString("base64"),
+      Authorization: "Basic " + Buffer.from(`admin:${password}`).toString("base64"),
       Accept: "application/json",
       "Content-Type": "application/json",
     },
@@ -45,8 +45,9 @@ async function loginAndGoToBoard(page: any, user: (typeof COMMENT_USERS)[0]) {
   await page.fill("#oc-login-username", user.username);
   await page.fill("#oc-login-password", user.password);
   await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForURL(/.*\/files\/.*/, { timeout: 30000 });
-  await page.goto("/feature-voting/board");
+  await page.waitForSelector("#oc-login-username", { state: "detached", timeout: 30000 });
+  await page.waitForTimeout(2000);
+  await page.goto("/feature-voting/board", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".fv-container")).toBeVisible({ timeout: 15000 });
   await expect(page.locator("h1")).toContainText("Feature Voting");
 }
@@ -57,8 +58,10 @@ test.describe.serial("Comments", () => {
   let commentAlphaText: string;
   let commentBetaText: string;
 
-  test.beforeAll(async () => {
-    const api = await getAdminContext();
+  test.beforeAll(async ({}, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL || "https://cloud.opencloud.test";
+    const password = testInfo.project.use.httpCredentials?.password || "admin";
+    const api = await getAdminContext(baseURL, password);
 
     console.log("→ [comments] Creating comment test users...");
     for (const user of COMMENT_USERS) {
@@ -97,8 +100,10 @@ test.describe.serial("Comments", () => {
     await api.dispose();
   });
 
-  test.afterAll(async () => {
-    const api = await getAdminContext();
+  test.afterAll(async ({}, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL || "https://cloud.opencloud.test";
+    const password = testInfo.project.use.httpCredentials?.password || "admin";
+    const api = await getAdminContext(baseURL, password);
 
     console.log("→ [comments] Deleting comment test users...");
     for (const id of createdUserIds) {

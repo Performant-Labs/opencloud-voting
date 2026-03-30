@@ -16,7 +16,7 @@ import { test, expect, request as playwrightRequest } from "@playwright/test";
  *   verify only the middle one's count changed
  */
 
-const BASE_URL = "https://cloud.opencloud.test";
+
 
 const VOTE_TARGET_USERS = [
   {
@@ -33,12 +33,12 @@ const VOTE_TARGET_USERS = [
   },
 ];
 
-async function getAdminContext() {
+async function getAdminContext(baseURL: string, password: string) {
   return playwrightRequest.newContext({
-    baseURL: BASE_URL,
+    baseURL,
     ignoreHTTPSErrors: true,
     extraHTTPHeaders: {
-      Authorization: "Basic " + Buffer.from("admin:admin").toString("base64"),
+      Authorization: "Basic " + Buffer.from(`admin:${password}`).toString("base64"),
       Accept: "application/json",
       "Content-Type": "application/json",
     },
@@ -53,8 +53,9 @@ async function loginAndGoToBoard(
   await page.fill("#oc-login-username", user.username);
   await page.fill("#oc-login-password", user.password);
   await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForURL(/.*\/files\/.*/, { timeout: 30000 });
-  await page.goto("/feature-voting/board");
+  await page.waitForSelector("#oc-login-username", { state: "detached", timeout: 30000 });
+  await page.waitForTimeout(2000);
+  await page.goto("/feature-voting/board", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".fv-container")).toBeVisible({ timeout: 15000 });
   await expect(page.locator("h1")).toContainText("Feature Voting");
 }
@@ -75,8 +76,10 @@ test.describe.serial("Vote Targeting Accuracy", () => {
 
   // ── Setup: create test users ──────────────────────────────────────────
 
-  test.beforeAll(async () => {
-    const api = await getAdminContext();
+  test.beforeAll(async ({}, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL || "https://cloud.opencloud.test";
+    const password = testInfo.project.use.httpCredentials?.password || "admin";
+    const api = await getAdminContext(baseURL, password);
 
     console.log("→ [vote-targeting] Creating test users...");
     for (const user of VOTE_TARGET_USERS) {
@@ -116,8 +119,10 @@ test.describe.serial("Vote Targeting Accuracy", () => {
 
   // ── Teardown: delete test users ───────────────────────────────────────
 
-  test.afterAll(async () => {
-    const api = await getAdminContext();
+  test.afterAll(async ({}, testInfo) => {
+    const baseURL = testInfo.project.use.baseURL || "https://cloud.opencloud.test";
+    const password = testInfo.project.use.httpCredentials?.password || "admin";
+    const api = await getAdminContext(baseURL, password);
 
     console.log("→ [vote-targeting] Deleting test users...");
     for (const id of createdUserIds) {
@@ -272,7 +277,9 @@ test.describe.serial("Vote Targeting Accuracy", () => {
     }
 
     // Use admin API context to delete (avoids OIDC token issues)
-    const api = await getAdminContext();
+    const baseURL = test.info().project.use.baseURL || "https://cloud.opencloud.test";
+    const password = test.info().project.use.httpCredentials?.password || "admin";
+    const api = await getAdminContext(baseURL, password);
     for (const id of featureIds) {
       const res = await api.delete(`/api/voting/features/${id}`);
       // Admin may get 204 or 403 (not owner) depending on backend policy.

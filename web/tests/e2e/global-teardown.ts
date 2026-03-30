@@ -8,14 +8,19 @@ const __dirname = path.dirname(__filename);
 
 /**
  * Global teardown to cleanup test users.
+ * Admin credentials come from playwright.config.ts → use.httpCredentials.
  */
 async function globalTeardown(config: FullConfig) {
-  const { baseURL } = config.projects[0].use;
+  const { baseURL, httpCredentials } = config.projects[0].use;
+  const username = httpCredentials?.username || "admin";
+  const password = httpCredentials?.password || "admin";
+
   const requestContext = await request.newContext({
     baseURL,
     ignoreHTTPSErrors: true,
     extraHTTPHeaders: {
-      Authorization: "Basic " + Buffer.from("admin:admin").toString("base64"),
+      Authorization:
+        "Basic " + Buffer.from(`${username}:${password}`).toString("base64"),
     },
   });
 

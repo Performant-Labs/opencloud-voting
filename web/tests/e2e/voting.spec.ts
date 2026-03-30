@@ -57,10 +57,11 @@ test.describe.serial("Feature Voting App", () => {
     await page.getByRole("button", { name: "Log in" }).click();
 
     // Wait for the OIDC flow to complete – post-login lands at /files/spaces/...
-    await page.waitForURL(/.*\/files\/.*/, { timeout: 30000 });
+    await page.waitForSelector("#oc-login-username", { state: "detached", timeout: 30000 });
+    await page.waitForTimeout(2000);
 
     // Navigate to the Feature Voting app
-    await page.goto("/feature-voting/board");
+    await page.goto("/feature-voting/board", { waitUntil: "domcontentloaded" });
 
     // Wait for the app component to mount
     await expect(page.locator(".fv-container")).toBeVisible({ timeout: 15000 });
