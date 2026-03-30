@@ -3,7 +3,7 @@
 This guide is for **OpenCloud administrators** who want to add the Feature Voting extension to an existing OpenCloud deployment. No programming knowledge is required.
 
 Feature Voting has two components that install together:
-- A **web extension** (the UI that appears in the OpenCloud sidebar)
+- A **web extension** (the UI that appears in the OpenCloud app switcher)
 - A **sidecar container** (a small backend service that stores features and votes)
 
 ---
@@ -20,8 +20,11 @@ You will need:
 | Your OpenCloud domain | e.g. `cloud.example.com` or `cloud.opencloud.test` for local dev |
 | `curl`, `unzip`, and `python3` installed | These are pre-installed on most Linux servers and macOS |
 
+> [!TIP]
+> **Don't have OpenCloud yet?** Download the deployment files from [opencloud-compose](https://github.com/opencloud-eu/opencloud-compose), copy `.env.example` to `.env`, set `INITIAL_ADMIN_PASSWORD`, and run `docker compose up -d`. See the [opencloud-compose README](https://github.com/opencloud-eu/opencloud-compose#readme) for full instructions.
+
 > [!IMPORTANT]
-> All commands in this guide must be run **from your OpenCloud deployment directory** — the folder that contains your `docker-compose.yml` and `.env` files. This is typically the `opencloud-compose` folder you cloned when you first set up OpenCloud.
+> All commands in this guide must be run **from your OpenCloud deployment directory** — the folder that contains your `docker-compose.yml` and `.env` files. **Do not `cd` into subdirectories** while running these steps.
 >
 > ```bash
 > cd /path/to/your/opencloud-compose
@@ -50,6 +53,8 @@ grep COMPOSE_FILE .env
 This is the standard pattern used by OpenCloud for add-ons like Collabora, Radicale, and monitoring. If you have `COMPOSE_FILE` set in your `.env`, this is the method to use.
 
 ### Step 1 — Download the compose file and add it to your stack
+
+Run these two commands from your deployment directory (do **not** `cd` into the `feature-voting` folder):
 
 ```bash
 mkdir -p feature-voting
@@ -88,14 +93,17 @@ rm feature-voting-web.zip
 After this, you should see files inside `config/opencloud/apps/feature-voting/`:
 ```bash
 ls config/opencloud/apps/feature-voting/
-# Expected: manifest.json  feature-voting.js  ...
+# Expected: manifest.json  js/
 ```
 
 ### Step 3 — Add the proxy route
 
-OpenCloud needs to know where to send Feature Voting API requests. Edit (or create) the file `config/opencloud/proxy.yaml`.
+OpenCloud needs to know where to send Feature Voting API requests. Create (or edit) the file `config/opencloud/proxy.yaml`.
 
-**If the file already exists** (e.g. you have Radicale or another add-on), add the following two lines at the end of the existing `routes:` list:
+> [!NOTE]
+> The compose file you downloaded in Step 1 automatically mounts this file into the OpenCloud container. You just need to create it on disk.
+
+**If the file already exists** (e.g. you have Radicale or another add-on), add the following lines at the end of the existing `routes:` list:
 
 ```yaml
       # Feature Voting API sidecar
@@ -139,21 +147,16 @@ docker compose restart opencloud
 
 ### Step 6 — Verify
 
-Open your browser and go to your OpenCloud instance. You should see **"Feature Voting"** in the left sidebar. Click it to open the board.
+1. **Check the container is running:**
+   ```bash
+   docker compose ps voting-app
+   # STATUS should show "Up" and "(healthy)"
+   ```
 
-You can also verify from the command line:
-```bash
-# Check that the voting-app container is running
-docker compose ps voting-app
-# STATUS should show "Up" or "running"
-
-# Check the health endpoint (replace with your domain)
-curl -sk https://cloud.example.com/api/voting/healthz
-# Expected: {"status":"ok"}
-```
+2. **Open your browser**, go to your OpenCloud instance, and log in. Click the **app switcher** (grid icon in the top-left corner) — you should see **"Feature Voting"** listed. Click it to open the board.
 
 > [!NOTE]
-> The health endpoint does not require authentication, so the `curl` check works without a Bearer token. The actual voting API endpoints require you to be logged in.
+> The voting API is protected behind OpenCloud's proxy, which requires authentication for all requests. You must be logged into OpenCloud to use Feature Voting — there is no unauthenticated access to the API.
 
 ---
 
@@ -235,7 +238,7 @@ The defaults work for most deployments. Adjust these only if needed.
 
 ### Database
 
-By default, voting data is stored in a **SQLite** file at `/data/feature-voting.sqlite` inside the container. This file lives in the `shared-data` Docker volume and persists across container restarts and upgrades.
+By default, voting data is stored in a **SQLite** file at `/data/feature-voting.sqlite` inside the container. This file lives in the `voting-data` Docker volume and persists across container restarts and upgrades.
 
 No database setup is required. The sidecar creates the database automatically on first start.
 
@@ -294,7 +297,7 @@ docker compose restart opencloud
 
 To also **delete all voting data** (irreversible):
 ```bash
-docker volume rm $(docker volume ls -q | grep shared-data)
+docker volume rm $(docker volume ls -q | grep voting-data)
 ```
 
 ---
@@ -316,27 +319,39 @@ OC_DOMAIN=cloud.example.com \
 
 ## Troubleshooting
 
-### "Feature Voting" doesn't appear in the sidebar
+### "Feature Voting" doesn't appear in the app switcher
 
 1. Check that the frontend files are in the right place:
    ```bash
    ls config/opencloud/apps/feature-voting/manifest.json
+   ```
+   If you see `config/opencloud/apps/feature-voting/dist/manifest.json` instead (inside a `dist/` subfolder), the zip was unpacked with an extra layer. Move the files up:
+   ```bash
+   mv config/opencloud/apps/feature-voting/dist/* config/opencloud/apps/feature-voting/
+   rmdir config/opencloud/apps/feature-voting/dist
    ```
 2. Restart OpenCloud:
    ```bash
    docker compose restart opencloud
    ```
 
-### Voting API returns 404
+### Voting API returns 404 or the OpenCloud HTML page
 
-1. Check that the proxy route is in `config/opencloud/proxy.yaml`
-2. Check that the voting-app container is running:
-   ```bash
-   docker compose ps voting-app
+The proxy route is not being picked up. Check:
+
+1. The file `config/opencloud/proxy.yaml` exists and contains the `/api/voting/` route
+2. The compose file mounts `proxy.yaml` into the container. The `opencloud.yml` and `docker-compose.override.yml` from the release do this automatically. If you're using a custom setup, add this to your opencloud service:
+   ```yaml
+   services:
+     opencloud:
+       environment:
+         PROXY_ADDITIONAL_POLICIES_CONFIG_FILE_LOCATION: /etc/opencloud/proxy.yaml
+       volumes:
+         - ./config/opencloud/proxy.yaml:/etc/opencloud/proxy.yaml
    ```
-3. Check the container logs:
+3. Restart OpenCloud after any proxy.yaml changes:
    ```bash
-   docker compose logs voting-app
+   docker compose restart opencloud
    ```
 
 ### Voting API returns 401 (Unauthorized)
@@ -354,11 +369,11 @@ docker compose logs --tail=50 voting-app
 ```
 
 Common causes:
-- The `shared-data` volume doesn't exist (check `docker volume ls`)
+- The `voting-data` volume doesn't exist (check `docker volume ls`)
 - The `opencloud-net` network doesn't exist (check `docker network ls`)
-- `COMPOSE_PROJECT_NAME` is missing or wrong in `.env`
+- For Method B: `COMPOSE_PROJECT_NAME` is missing or wrong in `.env`
 
-### "network not found" or "volume not found" error
+### "volume not found" error (Method B only)
 
 The override file uses `COMPOSE_PROJECT_NAME` to find the existing Docker network and volume. See [Step 5 in Method B](#step-5--find-your-compose-project-name) to set it correctly.
 

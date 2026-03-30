@@ -1,4 +1,12 @@
 services:
+  # Extend the opencloud service to mount the proxy route config
+  opencloud:
+    environment:
+      PROXY_ADDITIONAL_POLICIES_CONFIG_FILE_LOCATION: /etc/opencloud/proxy.yaml
+    volumes:
+      - ./config/opencloud/proxy.yaml:/etc/opencloud/proxy.yaml
+
+  # Feature Voting sidecar API
   voting-app:
     image: ghcr.io/performant-labs/opencloud-voting-api:latest
     networks:
@@ -9,7 +17,7 @@ services:
       OC_DB_URL: "${VOTING_DB_URL:-}"
       OC_LOG_LEVEL: "${LOG_LEVEL:-info}"
     volumes:
-      - shared-data:/data
+      - voting-data:/data
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
       interval: 30s
@@ -19,3 +27,6 @@ services:
     restart: unless-stopped
     logging:
       driver: "${LOG_DRIVER:-local}"
+
+volumes:
+  voting-data:

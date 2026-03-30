@@ -71,7 +71,7 @@ clean:
 release: build
 	@echo "→ Packaging release $(VERSION)..."
 	@mkdir -p dist
-	@cd web && zip -r ../dist/feature-voting-web-$(VERSION).zip dist/
+	@cd web/dist && zip -r ../../dist/feature-voting-web-$(VERSION).zip .
 	@cp install/docker-compose.override.yml dist/
 	@cp install/opencloud.yml dist/
 	@cp install/install.sh dist/

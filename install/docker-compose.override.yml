@@ -12,6 +12,13 @@
 #     dockerfile: Dockerfile
 
 services:
+  # Extend the opencloud service to mount the proxy route config
+  opencloud:
+    environment:
+      PROXY_ADDITIONAL_POLICIES_CONFIG_FILE_LOCATION: /etc/opencloud/proxy.yaml
+    volumes:
+      - ./config/opencloud/proxy.yaml:/etc/opencloud/proxy.yaml
+
   voting-app:
     image: ghcr.io/performant-labs/opencloud-voting-api:latest
     networks:
@@ -23,7 +30,7 @@ services:
       OC_OIDC_ISSUER: "https://${OC_DOMAIN:-cloud.opencloud.test}"
 
       # ── Storage ────────────────────────────────────────────────────────
-      # SQLite (default): data persists in the shared-data Docker volume.
+      # SQLite (default): data persists in the voting-data Docker volume.
       DB_PATH: "/data/feature-voting.sqlite"
       # PostgreSQL (optional): set this to use Postgres instead of SQLite.
       # Format: postgres://user:password@host:5432/dbname?sslmode=disable
@@ -33,9 +40,7 @@ services:
       OC_LOG_LEVEL: "${LOG_LEVEL:-info}"
 
     volumes:
-      # Shares the same volume as the main OpenCloud stack so the SQLite
-      # file persists across container restarts and upgrades.
-      - shared-data:/data
+      - voting-data:/data
 
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
@@ -55,8 +60,8 @@ networks:
     external: true
     name: ${COMPOSE_PROJECT_NAME}_opencloud-net
 
-# Reference the shared volume that already exists in docker-compose.yml
+# Voting data volume (separate from the main OpenCloud volumes)
 volumes:
-  shared-data:
+  voting-data:
     external: true
-    name: ${COMPOSE_PROJECT_NAME}_shared-data
+    name: ${COMPOSE_PROJECT_NAME}_voting-data
