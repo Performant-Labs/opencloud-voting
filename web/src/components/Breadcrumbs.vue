@@ -79,4 +79,5 @@ defineProps<{
   color: var(--oc-color-text-default, #111827);
   cursor: default;
 }
+
 </style>

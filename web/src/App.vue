@@ -239,20 +239,22 @@ onUnmounted(() => {
               <p v-if="feature.description" class="fv-item-desc">
                 {{ feature.description }}
               </p>
-              <small class="fv-item-meta">
-                {{ formatDate(feature.created_at) }}
-              </small>
+              <div class="fv-item-footer">
+                <small class="fv-item-meta">
+                  {{ formatDate(feature.created_at) }}
+                </small>
 
-              <!-- Comment toggle -->
-              <button
-                class="fv-comments-toggle"
-                @click.stop="toggleComments(feature.id)"
-              >
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
-                  <path d="M21 6c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h11l4 4V6z"/>
-                </svg>
-                {{ (commentsByFeature[feature.id] || []).length }} comment{{ (commentsByFeature[feature.id] || []).length === 1 ? '' : 's' }}
-              </button>
+                <!-- Comment toggle -->
+                <button
+                  class="fv-comments-toggle"
+                  @click.stop="toggleComments(feature.id)"
+                >
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                    <path d="M21 6c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h11l4 4V6z"/>
+                  </svg>
+                  {{ (commentsByFeature[feature.id] || []).length }} comment{{ (commentsByFeature[feature.id] || []).length === 1 ? '' : 's' }}
+                </button>
+              </div>
 
               <!-- Inline comment section -->
               <div v-if="expandedComments.has(feature.id)" class="fv-comments">
@@ -269,9 +271,8 @@ onUnmounted(() => {
                       <button
                         v-if="comment.user_id === currentUserId || isAdmin"
                         class="fv-comment-delete"
-                        title="Delete comment"
                         @click.stop="handleDeleteComment(feature.id, comment.id)"
-                      >&#x2715;</button>
+                      >Delete</button>
                     </div>
                     <p class="fv-comment-body">{{ comment.body }}</p>
                   </div>
@@ -664,12 +665,19 @@ onUnmounted(() => {
   background: var(--oc-color-swatch-danger-muted, #fef2f2);
 }
 
+/* Footer row: date + comment toggle */
+.fv-item-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+
 /* Comment toggle button */
 .fv-comments-toggle {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  margin-top: 8px;
   padding: 3px 8px;
   border: 1px solid var(--oc-color-border, #d1d5db);
   border-radius: 20px;
@@ -720,19 +728,16 @@ onUnmounted(() => {
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--oc-color-text-muted, #9ca3af);
+  color: var(--oc-color-swatch-danger-default, #ef4444);
   font-size: 0.75rem;
   padding: 1px 4px;
   border-radius: 4px;
   line-height: 1;
-  opacity: 0;
-  transition: opacity 0.15s, color 0.15s;
-}
-.fv-comment:hover .fv-comment-delete {
-  opacity: 1;
+  text-decoration: underline;
+  transition: background 0.15s;
 }
 .fv-comment-delete:hover {
-  color: var(--oc-color-swatch-danger-default, #ef4444);
+  background: var(--oc-color-swatch-danger-muted, #fef2f2);
 }
 .fv-comment-body {
   font-size: 0.88rem;
@@ -771,4 +776,5 @@ onUnmounted(() => {
   white-space: nowrap;
   flex-shrink: 0;
 }
+
 </style>
