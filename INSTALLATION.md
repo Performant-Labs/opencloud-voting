@@ -31,26 +31,42 @@ You will need:
 
 ## Choose Your Installation Method
 
-| Method | Best for |
-|:-------|:---------|
-| [**Method A — Override file**](#method-a--override-file-recommended) | **Most users.** Self-contained, no changes to your existing compose files. |
-| [**Method B — COMPOSE_FILE append**](#method-b--compose_file-append) | Admins who manage multiple add-ons (Collabora, Radicale, etc.) using the `COMPOSE_FILE` variable. |
+Check your `.env` file:
 
-Both methods produce the same result. Pick whichever matches how you already manage your deployment.
+```bash
+grep COMPOSE_FILE .env
+```
+
+- **If it prints a `COMPOSE_FILE=...` line** → Use [**Method A — COMPOSE_FILE append**](#method-a--compose_file-append-recommended) (recommended)
+- **If it prints nothing** → Use [**Method B — Override file**](#method-b--override-file)
+
+> [!IMPORTANT]
+> If you followed the OpenCloud setup guide and added Traefik (most users), you have `COMPOSE_FILE` set. Use **Method A**.
 
 ---
 
-## Method A — Override File (Recommended)
+## Method A — COMPOSE_FILE Append (Recommended)
 
-### Step 1 — Download the compose override
+This is the standard pattern used by OpenCloud for add-ons like Collabora, Radicale, and monitoring. If you have `COMPOSE_FILE` set in your `.env`, this is the method to use.
+
+### Step 1 — Download the compose file and add it to your stack
 
 ```bash
+mkdir -p feature-voting
 curl -fsSL \
-  https://github.com/Performant-Labs/opencloud-voting/releases/latest/download/docker-compose.override.yml \
-  -o docker-compose.override.yml
+  https://github.com/Performant-Labs/opencloud-voting/releases/latest/download/opencloud.yml \
+  -o feature-voting/opencloud.yml
 ```
 
-Docker Compose automatically merges `docker-compose.override.yml` with `docker-compose.yml` when both are present in the same directory — no extra flags needed.
+Then open your `.env` file and add `feature-voting/opencloud.yml` to your `COMPOSE_FILE` line:
+
+```dotenv
+# Before (your existing line — yours may look different)
+COMPOSE_FILE=docker-compose.yml:traefik/opencloud.yml
+
+# After — append the new file with a colon separator
+COMPOSE_FILE=docker-compose.yml:traefik/opencloud.yml:feature-voting/opencloud.yml
+```
 
 ### Step 2 — Deploy the web extension
 
@@ -111,6 +127,65 @@ OC_DOMAIN=cloud.example.com
 
 If `OC_DOMAIN` is already set in your `.env` (which it should be if your OpenCloud is working), no change is needed — the voting sidecar reads the same variable.
 
+### Step 5 — Start the services
+
+```bash
+# Start the voting sidecar
+docker compose up -d voting-app
+
+# Restart OpenCloud so it picks up the new proxy route and web extension
+docker compose restart opencloud
+```
+
+### Step 6 — Verify
+
+Open your browser and go to your OpenCloud instance. You should see **"Feature Voting"** in the left sidebar. Click it to open the board.
+
+You can also verify from the command line:
+```bash
+# Check that the voting-app container is running
+docker compose ps voting-app
+# STATUS should show "Up" or "running"
+
+# Check the health endpoint (replace with your domain)
+curl -sk https://cloud.example.com/api/voting/healthz
+# Expected: {"status":"ok"}
+```
+
+> [!NOTE]
+> The health endpoint does not require authentication, so the `curl` check works without a Bearer token. The actual voting API endpoints require you to be logged in.
+
+---
+
+## Method B — Override File
+
+Use this method **only** if you do NOT have `COMPOSE_FILE` set in your `.env` — meaning you start OpenCloud by passing `-f` flags directly on the command line.
+
+> [!WARNING]
+> If `COMPOSE_FILE` is set in your `.env`, Docker Compose **ignores** the override file. Use [Method A](#method-a--compose_file-append-recommended) instead.
+
+### Step 1 — Download the compose override
+
+```bash
+curl -fsSL \
+  https://github.com/Performant-Labs/opencloud-voting/releases/latest/download/docker-compose.override.yml \
+  -o docker-compose.override.yml
+```
+
+Docker Compose automatically merges `docker-compose.override.yml` with `docker-compose.yml` when both are present in the same directory.
+
+### Step 2 — Deploy the web extension
+
+Same as [Method A, Step 2](#step-2--deploy-the-web-extension).
+
+### Step 3 — Add the proxy route
+
+Same as [Method A, Step 3](#step-3--add-the-proxy-route).
+
+### Step 4 — Set your domain
+
+Same as [Method A, Step 4](#step-4--set-your-domain).
+
 ### Step 5 — Find your compose project name
 
 The override file needs to connect to the Docker network and volume created by your main OpenCloud stack. It uses the `COMPOSE_PROJECT_NAME` variable to find them.
@@ -136,80 +211,13 @@ COMPOSE_PROJECT_NAME=opencloud-compose
 ### Step 6 — Start the services
 
 ```bash
-# Start the voting sidecar
-docker compose up -d voting-app
-
-# Restart OpenCloud so it picks up the new proxy route and web extension
-docker compose restart opencloud
-```
-
-### Step 7 — Verify
-
-Open your browser and go to your OpenCloud instance. You should see **"Feature Voting"** in the left sidebar. Click it to open the board.
-
-You can also verify from the command line:
-```bash
-# Check that the voting-app container is running
-docker compose ps voting-app
-# STATUS should show "Up" or "running"
-
-# Check the health endpoint (replace with your domain)
-curl -sk https://cloud.example.com/api/voting/healthz
-# Expected: {"status":"ok"}
-```
-
-> [!NOTE]
-> The health endpoint does not require authentication, so the `curl` check works without a Bearer token. The actual voting API endpoints require you to be logged in.
-
----
-
-## Method B — COMPOSE_FILE Append
-
-Use this method if you already manage your compose stack using the `COMPOSE_FILE` variable in `.env` (the same pattern used for Collabora, Radicale, and other OpenCloud add-ons).
-
-### Step 1 — Download the named compose file
-
-```bash
-mkdir -p feature-voting
-curl -fsSL \
-  https://github.com/Performant-Labs/opencloud-voting/releases/latest/download/opencloud.yml \
-  -o feature-voting/opencloud.yml
-```
-
-### Step 2 — Deploy the web extension
-
-Same as [Method A, Step 2](#step-2--deploy-the-web-extension).
-
-### Step 3 — Add the proxy route
-
-Same as [Method A, Step 3](#step-3--add-the-proxy-route).
-
-### Step 4 — Set your domain
-
-Same as [Method A, Step 4](#step-4--set-your-domain).
-
-### Step 5 — Append to COMPOSE_FILE
-
-Open your `.env` file and add `feature-voting/opencloud.yml` to your `COMPOSE_FILE` line:
-
-```dotenv
-# Before (your existing line — yours may look different)
-COMPOSE_FILE=docker-compose.yml:traefik/opencloud.yml
-
-# After
-COMPOSE_FILE=docker-compose.yml:traefik/opencloud.yml:feature-voting/opencloud.yml
-```
-
-### Step 6 — Start the services
-
-```bash
 docker compose up -d voting-app
 docker compose restart opencloud
 ```
 
 ### Step 7 — Verify
 
-Same as [Method A, Step 7](#step-7--verify).
+Same as [Method A, Step 6](#step-6--verify).
 
 ---
 
@@ -273,12 +281,12 @@ rm -rf config/opencloud/apps/feature-voting/
 # Remove the proxy route:
 # Edit config/opencloud/proxy.yaml and delete the /api/voting/ lines
 
-# For Method A: remove the override file
-rm -f docker-compose.override.yml
-
-# For Method B: remove the compose file and its reference
+# For Method A: remove the compose file and its reference
 rm -rf feature-voting/
 # Then edit .env and remove :feature-voting/opencloud.yml from COMPOSE_FILE
+
+# For Method B: remove the override file
+rm -f docker-compose.override.yml
 
 # Restart OpenCloud to apply changes
 docker compose restart opencloud
@@ -291,9 +299,9 @@ docker volume rm $(docker volume ls -q | grep shared-data)
 
 ---
 
-## One-Liner Install (Method A only)
+## One-Liner Install (Method B only)
 
-This script automates Steps 1–2 (downloads the compose override and deploys the frontend). You still need to complete Steps 3–6 manually afterward. Review the script before running it.
+This script automates Steps 1–2 of Method B (downloads the compose override and deploys the frontend). You still need to complete Steps 3–6 manually afterward. Review the script before running it.
 
 ```bash
 cd /path/to/your/opencloud-compose
@@ -352,7 +360,7 @@ Common causes:
 
 ### "network not found" or "volume not found" error
 
-The override file uses `COMPOSE_PROJECT_NAME` to find the existing Docker network and volume. See [Step 5 in Method A](#step-5--find-your-compose-project-name) to set it correctly.
+The override file uses `COMPOSE_PROJECT_NAME` to find the existing Docker network and volume. See [Step 5 in Method B](#step-5--find-your-compose-project-name) to set it correctly.
 
 ---
 
