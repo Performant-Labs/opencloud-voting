@@ -97,6 +97,8 @@ async function handleSubmit() {
   max-width: 720px;
   margin: 0 auto;
   padding: 24px 16px;
+  height: 100%;
+  overflow-y: auto;
 }
 
 .fv-header {
