@@ -168,16 +168,18 @@ Before writing datastore logic or user identity extraction routines in Go, we mu
 
 ## Phase 1200: CI/CD & Final Whitehat Audit
 - **[SKIP] 1210 - [CI]**: ~~Build and publish API Docker image to GHCR and verify GitHub Actions handle testing/linting using OpenCloud conventions.~~ **Deliberately skipped.** Every test the workflow would run (`go test`, `pnpm build`, `pnpm lint`) is already executed locally before each commit and evidenced in `EXECUTION_LOG.md`. The Playwright E2E suite cannot run in CI without a live OpenCloud stack. The unique value of CI (GHCR publish + merge gate) is a nice-to-have for a solo project at this stage; it adds no verification not already present locally.
-- **[ ] 1220 - [AUDIT]**: Actively verify that the documented theoretical mitigations (Auth Middleware validation, SQLite WAL load handling, Submittability constraints) behave exactly as intended in a live penetration test.
-- **[ ] 1230 - [UPDATE]**: Refresh `docs/SECURITY_ASSESSMENT.md` with hard evidence and live findings, certifying the application stack officially clear for main-repo submission.
+- **[x] 1220 - [AUDIT]**: Actively verify that the documented theoretical mitigations (Auth Middleware validation, SQLite WAL load handling, Submittability constraints) behave exactly as intended in a live penetration test.
+- **[x] 1230 - [UPDATE]**: Refresh `docs/SECURITY_ASSESSMENT.md` with hard evidence and live findings, certifying the application stack officially clear for main-repo submission.
 
 ---
 
-## Phase 1300: [OPTIONAL] OSS-PREY & Deep Dependency EOL Audit
-Because extensive supply-chain vitality tooling requires complex local configuration (e.g., GitHub API tokens to measure commit frequency, and Python environment setups for the CLI), this phase is explicitly designated as **optional** and is executed strictly at the very end of the lifecycle so it does not block functional delivery and End-to-End browser verifications.
+## ARCHIVED
+
+### Phase 1300: OSS-PREY & Deep Dependency EOL Audit
+
+> **Archived — not executed.** OSSPREY could not be configured successfully in this environment (requires GitHub API tokens and a Python environment setup that was not available). The supply-chain audit tasks below are preserved here for reference in case they become feasible in a future session.
+
 - **[ ] 1310 - [EOL DISCOVERY]**: Utilize **OSS-PREY** (https://oss-prey.github.io/OSSPREY-Website/) to conduct a deep-dive End-of-Life audit on our dependency tree. OSS-PREY specializes in evaluating the maintenance status and community vitality of open-source packages, explicitly flagging components that are quietly abandoned or lack an active lifecycle.
 - **[ ] 1320 - [GO BACKEND]**: Run `govulncheck` to statically analyze the compiled Go sidecar for known CVE vulnerabilities and deprecated standard library hooks.
 - **[ ] 1330 - [FRONTEND]**: Run `pnpm audit` in the `web/` directory to hunt for high-severity supply chain faults.
 - **[ ] 1340 - [CONTAINER STACK]**: Run `trivy` (Aqua Security) against the full project repository and `api/Dockerfile`. Trivy analyzes Alpine base images and multi-language repositories for unpatched container vulnerabilities.
-
-
