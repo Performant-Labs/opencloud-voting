@@ -167,7 +167,7 @@ Before writing datastore logic or user identity extraction routines in Go, we mu
 ---
 
 ## Phase 1200: CI/CD & Final Whitehat Audit
-- **[ ] 1210 - [CI]**: Build and publish API Docker image to GHCR and verify GitHub Actions handle testing/linting using OpenCloud conventions.
+- **[SKIP] 1210 - [CI]**: ~~Build and publish API Docker image to GHCR and verify GitHub Actions handle testing/linting using OpenCloud conventions.~~ **Deliberately skipped.** Every test the workflow would run (`go test`, `pnpm build`, `pnpm lint`) is already executed locally before each commit and evidenced in `EXECUTION_LOG.md`. The Playwright E2E suite cannot run in CI without a live OpenCloud stack. The unique value of CI (GHCR publish + merge gate) is a nice-to-have for a solo project at this stage; it adds no verification not already present locally.
 - **[ ] 1220 - [AUDIT]**: Actively verify that the documented theoretical mitigations (Auth Middleware validation, SQLite WAL load handling, Submittability constraints) behave exactly as intended in a live penetration test.
 - **[ ] 1230 - [UPDATE]**: Refresh `docs/SECURITY_ASSESSMENT.md` with hard evidence and live findings, certifying the application stack officially clear for main-repo submission.
 
