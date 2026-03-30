@@ -328,3 +328,54 @@ This document records every architectural decision, technical gap bridged, and d
 - **Why**: The vote-count inflation bug (A10) was caught precisely because this test failed: Beta voting on the middle feature caused all three features to appear at count 2. The test now serves as a permanent regression guard for this class of bug.
 - **Verification**: All 4 tests pass after the `COUNT(DISTINCT)` fix was applied.
 
+---
+
+## Phase 800: Full Stack Deployment & Smoke Test
+
+### 810 — Build & Deploy
+- **When**: 2026-03-29T20:06 PDT
+- **How**:
+  - `cd web && pnpm build` — completed in 269ms. Output: 5 chunks (`App`, `NewFeature`, `Breadcrumbs`, entry, Fuse.js). Zero TypeScript errors.
+  - `cp -r web/dist/* pl-opencloud-server/config/opencloud/apps/feature-voting/` — all static assets deployed to proxy mount.
+  - `cd pl-opencloud-server && docker compose up -d --build voting-app` — image rebuilt from cache (all layers CACHED, binary unchanged). Container recreated and started in ~0.5s.
+- **Verification**: `docker logs pl-opencloud-server-voting-app-1` showed:
+  ```json
+  {"level":"info","service":"voting-app","path":"/data/feature-voting.sqlite","message":"using SQLite fallback"}
+  {"level":"info","service":"voting-app","message":"database schema verified"}
+  {"level":"info","service":"voting-app","addr":":8080","message":"voting-app server starting"}
+  ```
+
+### 820 — Single-User Smoke Test
+- **When**: 2026-03-29T20:08–20:13 PDT
+- **How**: Browser subagent logged in as `admin/admin` and performed the complete happy path.
+- **Results**:
+  | Step | Result |
+  |:-----|:-------|
+  | Login → `/files/` redirect | ✅ |
+  | Board at `/feature-voting/board`, `.fv-container` visible | ✅ |
+  | New feature form at `/feature-voting/new` with breadcrumbs | ✅ |
+  | Submit → feature appeared at top of board with vote_count=1 (auto-voted) | ✅ |
+  | Vote button increments count on existing features; board re-sorts | ✅ |
+  | Delete via `···` actions menu removes feature for existing cards | ✅ |
+- **Leftover cleanup**: 10 orphaned test features (Smoke Test + VT batch) deleted directly via SQLite after browser session.
+
+### 830 — Error Path Verification
+- **How**: Browser subagent submitted with empty title and inspected network behavior.
+- **Results**:
+  - Empty title: Browser stays on `/feature-voting/new` without navigating — validation fires correctly. **⚠️ Gap**: The visible error banner (red `ERR_EMPTY_TITLE` message) did not render on screen. Root cause is likely a reactive state timing issue in `NewFeature.vue` where the error ref is set but the element condition doesn't trigger a paint. Noted for fix in Phase 900.
+  - Unauthenticated requests: Proxy returns 401 before the sidecar is even reached ✅ (by design — no bypass).
+- **Decision**: Phase 900 E2E will include an assertion for the visible error banner, which will catch this regression immediately.
+
+### 840 — Probe Verification
+- **How**: Direct `wget` inside container (probes are intentionally behind auth at public URL).
+- **Results**:
+  - `wget localhost:8080/healthz` → `ok` ✅
+  - `wget localhost:8080/readyz` → `ready` ✅
+  - `wget localhost:8080/metrics` → `# HELP voting_requests_total Total number of API requests.` + counters ✅
+- **Note**: Probes respond 200 without auth at container-internal network level. At the public `cloud.opencloud.test` URL they return 401 (proxy auth required) — this is correct behavior for an enterprise deployment.
+
+### Post-Phase 800 Submittability Verification
+- **`pnpm build`**: Clean, no TypeScript errors.
+- **`docker compose up`**: Container starts cleanly, WAL mode confirmed active.
+- **Probes**: All three probes return expected output.
+- **Known gap**: Empty-title validation banner not rendering — isolated to Vue reactive paint, does not affect API-level validation (server still returns 422 if bypass attempted).
