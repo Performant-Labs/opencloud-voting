@@ -16,6 +16,7 @@ This guide covers two **installation methods** and two **configuration approache
 - A running [`opencloud-compose`](https://github.com/opencloud-eu/opencloud-compose) deployment
 - Docker Compose v2
 - Your OpenCloud domain (e.g. `cloud.opencloud.test` for local dev, or your production domain)
+- Your `COMPOSE_PROJECT_NAME` — the project name used by your opencloud-compose stack (check your `.env` file; it determines the prefix on Docker networks and volumes)
 
 ---
 
@@ -237,14 +238,14 @@ rm docker-compose.override.yml
 # remove it from COMPOSE_FILE in .env
 
 # Optional: delete the database (IRREVERSIBLE — deletes all features and votes)
-docker volume rm $(docker volume ls -q | grep shared-data)
+docker volume rm ${COMPOSE_PROJECT_NAME}_shared-data
 ```
 
 ---
 
 ## One-liner (Method A only)
 
-Automates Steps 1–3 above. Review the script before running it.
+Automates Steps 1–2 above (downloads the compose override and deploys the frontend). Steps 3 onward must be completed manually. Review the script before running it.
 
 ```bash
 OC_DOMAIN=your-domain.com \

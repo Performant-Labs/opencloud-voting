@@ -21,7 +21,7 @@ Before executing tests, your environment must be initialized to serve as a prope
    ```
 
 3. **Start the OpenCloud Stack (If needed):**
-   If the pre-flight check indicated the stack is unreachable, ensure that your local OpenCloud environment (`pl-opencloud-server`) is actively running. This serves as the remote backend for Graph API calls and WebDAV storage during the tests.
+   If the pre-flight check indicated the stack is unreachable, ensure that your local OpenCloud environment (`opencloud-compose`) is actively running. This serves as the remote backend for Graph API calls and WebDAV storage during the tests.
 
 4. **Re-Verify Health:**
    Once the stack is running or dependencies are installed, re-run `./web/scripts/run_e2e_tests.sh` to ensure the E2E tests can now connect.
@@ -40,10 +40,10 @@ Before executing any test suite, you must ensure the `cloud.opencloud.test` serv
 pnpm build
 
 # 2. Copy the freshly built files into the proxy's active application directory
-cp -r dist/* ../../pl-opencloud-server/config/opencloud/apps/feature-voting/
+cp -r dist/* ../../opencloud-compose/config/opencloud/apps/feature-voting/
 
 # 3. (Optional) Force the proxy to reload and flush aggressive Etag caches
-# In your pl-opencloud-server directory:
+# In your opencloud-compose directory:
 docker compose restart opencloud
 ```
 

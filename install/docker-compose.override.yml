@@ -1,6 +1,6 @@
 # docker-compose.override.yml
 #
-# Feature Voting sidecar — drop this file into your pl-opencloud-server
+# Feature Voting sidecar — drop this file into your opencloud-compose
 # directory alongside docker-compose.yml and run:
 #
 #   docker compose up -d voting-app
@@ -53,10 +53,10 @@ services:
 networks:
   opencloud-net:
     external: true
-    name: pl-opencloud-server_opencloud-net
+    name: ${COMPOSE_PROJECT_NAME}_opencloud-net
 
 # Reference the shared volume that already exists in docker-compose.yml
 volumes:
   shared-data:
     external: true
-    name: pl-opencloud-server_shared-data
+    name: ${COMPOSE_PROJECT_NAME}_shared-data

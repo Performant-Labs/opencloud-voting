@@ -52,11 +52,13 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture decis
 
 ## Prerequisites
 
-- [pnpm](https://pnpm.io/installation) v10+
-- Node.js 22+
+**For Running/Installation:**
+- Docker + Docker Compose v2+
+- A running [`opencloud-compose`](https://github.com/opencloud-eu/opencloud-compose) instance at `cloud.opencloud.test` for local testing
+
+**For Building from Source:**
+- Node.js 22+ & [pnpm](https://pnpm.io/installation) v10+
 - Go 1.22+
-- Docker + Docker Compose
-- A running [`pl-opencloud-server`](https://github.com/opencloud-eu/opencloud-compose) instance at `cloud.opencloud.test`
 
 ---
 
@@ -87,7 +89,7 @@ cd api && go run .
 |:--------|:------------|
 | `cd web && pnpm install` | Install frontend dependencies |
 | `cd web && pnpm build` | Production frontend build |
-| `cd web && pnpm test` | Run frontend unit tests |
+| `cd web && pnpm test:unit` | Run frontend unit tests |
 | `cd web && pnpm lint` | Lint frontend code |
 | `cd api && go test ./...` | Run Go unit tests |
 | `cd api && go build -o voting-app .` | Build Go binary |

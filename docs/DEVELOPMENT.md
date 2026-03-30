@@ -24,10 +24,16 @@ opencloud-voting/
 │   ├── src/
 │   │   ├── App.vue             # Board view (feature list, voting, comments)
 │   │   ├── NewFeature.vue      # Feature submission form
+│   │   ├── components/         # Breadcrumbs and other shared components
 │   │   ├── composables/        # useVotingApi (all API calls)
+│   │   ├── types.ts            # Shared TypeScript types
 │   │   └── index.ts            # Extension entry point
 │   ├── tests/
-│   │   ├── e2e/smoke.spec.ts   # Playwright E2E suite (18 tests)
+│   │   ├── e2e/                # Playwright E2E suite (18 tests across 4 specs)
+│   │   │   ├── comments.spec.ts
+│   │   │   ├── smoke.spec.ts
+│   │   │   ├── vote-targeting.spec.ts
+│   │   │   └── voting.spec.ts
 │   │   └── unit/               # Vitest unit tests
 │   ├── playwright.config.ts
 │   ├── vite.config.ts
@@ -40,10 +46,17 @@ opencloud-voting/
 │
 ├── docs/                       # Project documentation
 │   ├── ARCHITECTURE.md         # Architecture decision record
-│   ├── SECURITY_ASSESSMENT.md  # Live pen test results
+│   ├── DEVELOPMENT.md          # This file
+│   ├── MAINTAINER_INSTRUCTIONS.md   # Release and maintenance procedures
 │   ├── TESTING_INSTRUCTIONS.md # E2E test harness setup
+│   ├── THEMING.md              # Design token and CSS conventions
+│   ├── INTERNATIONALIZE.md     # i18n strategy
+│   ├── SECURITY_ASSESSMENT.md  # Pen test results
+│   ├── PRIVACY_ASSESSMENT.md   # Privacy review
 │   ├── EXECUTION_LOG.md        # Phased development log
-│   └── PLAN.md                 # Original project plan
+│   ├── PLAN.md                 # Original project plan
+│   ├── load-test-results/      # Raw hey output from load tests
+│   └── ai_guidance/            # Conventions and guidance for AI-assisted development
 │
 ├── scripts/                    # Developer utility scripts
 │   ├── load-test.sh            # hey-based load test suite
@@ -52,9 +65,12 @@ opencloud-voting/
 ├── config/
 │   └── proxy.yaml              # OpenCloud proxy route (for local dev)
 │
-├── INSTALLATION.md             # End-user installation guide
+├── CHANGELOG.md                # Release history
 ├── CONTRIBUTING.md             # Contributor guide
+├── INSTALLATION.md             # End-user installation guide
+├── LICENSE                     # AGPL-3.0
 ├── README.md                   # Project overview
+├── SECURITY.md                 # Security policy and vulnerability reporting
 ├── Makefile                    # All build/test/release commands
 └── opencloud-voting.code-workspace
 ```
@@ -83,7 +99,7 @@ brew install hey
 ### 1. Start the OpenCloud stack
 
 ```bash
-cd ~/Sites/pl-opencloud-server
+cd ~/Sites/opencloud-compose
 docker compose up -d
 ```
 
@@ -107,16 +123,16 @@ make dev
 ```
 
 `make deploy` builds `web/dist/` and copies it to
-`~/Sites/pl-opencloud-server/config/opencloud/apps/feature-voting/`, then
+`~/Sites/opencloud-compose/config/opencloud/apps/feature-voting/`, then
 restarts the `opencloud` container to pick up the new assets.
 
 ### 4. Start the API sidecar
 
-The sidecar is defined in `pl-opencloud-server/docker-compose.yml` and builds
+The sidecar is defined in `opencloud-compose/docker-compose.yml` and builds
 from `../opencloud-voting/api`:
 
 ```bash
-cd ~/Sites/pl-opencloud-server
+cd ~/Sites/opencloud-compose
 docker compose up -d --build voting-app
 ```
 
