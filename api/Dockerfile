@@ -2,7 +2,7 @@
 # CGO is required because the project uses mattn/go-sqlite3 (C bindings).
 # The binary is statically linked against musl-libc so the runtime image
 # does not need glibc.
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 RUN apk add --no-cache gcc musl-dev
 
