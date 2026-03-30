@@ -1,0 +1,62 @@
+# docker-compose.override.yml
+#
+# Feature Voting sidecar — drop this file into your pl-opencloud-server
+# directory alongside docker-compose.yml and run:
+#
+#   docker compose up -d voting-app
+#
+# The pre-built image is published to GHCR on every release.
+# To build from source instead, replace `image:` with:
+#   build:
+#     context: /path/to/opencloud-voting/api
+#     dockerfile: Dockerfile
+
+services:
+  voting-app:
+    image: ghcr.io/performant-labs/opencloud-voting-api:latest
+    networks:
+      - opencloud-net
+    environment:
+      # ── Required ───────────────────────────────────────────────────────
+      # Set OC_OIDC_ISSUER to your OpenCloud domain so the sidecar can
+      # validate Bearer tokens against the correct OIDC public keys.
+      OC_OIDC_ISSUER: "https://${OC_DOMAIN:-cloud.opencloud.test}"
+
+      # ── Storage ────────────────────────────────────────────────────────
+      # SQLite (default): data persists in the shared-data Docker volume.
+      DB_PATH: "/data/feature-voting.sqlite"
+      # PostgreSQL (optional): set this to use Postgres instead of SQLite.
+      # Format: postgres://user:password@host:5432/dbname?sslmode=disable
+      OC_DB_URL: "${VOTING_DB_URL:-}"
+
+      # ── Logging ────────────────────────────────────────────────────────
+      OC_LOG_LEVEL: "${LOG_LEVEL:-info}"
+
+    volumes:
+      # Shares the same volume as the main OpenCloud stack so the SQLite
+      # file persists across container restarts and upgrades.
+      - shared-data:/data
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    restart: unless-stopped
+
+    logging:
+      driver: "${LOG_DRIVER:-local}"
+
+# Attach to the network that already exists in docker-compose.yml
+networks:
+  opencloud-net:
+    external: true
+    name: pl-opencloud-server_opencloud-net
+
+# Reference the shared volume that already exists in docker-compose.yml
+volumes:
+  shared-data:
+    external: true
+    name: pl-opencloud-server_shared-data

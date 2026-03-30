@@ -1,7 +1,8 @@
-.PHONY: install build build-watch lint test clean dev deploy
+.PHONY: install build build-watch lint test test-e2e test-go check-types format deploy clean release build-api
 
 OC_SERVER_DIR ?= $(HOME)/Sites/pl-opencloud-server
 OC_APP_DIR    := $(OC_SERVER_DIR)/config/opencloud/apps/feature-voting
+VERSION       ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 
 ## Install all dependencies
 install:
@@ -19,13 +20,27 @@ dev:
 build-watch:
 	cd web && pnpm build:w
 
-## Run all tests
+## Build Go API binary
+build-api:
+	cd api && CGO_ENABLED=1 go build -ldflags="-s -w" -o voting-app .
+
+## Build Docker image for the Go sidecar
+build-image:
+	docker build -t ghcr.io/performant-labs/opencloud-voting-api:$(VERSION) api/
+	docker tag ghcr.io/performant-labs/opencloud-voting-api:$(VERSION) \
+	           ghcr.io/performant-labs/opencloud-voting-api:latest
+
+## Run frontend unit tests
 test:
 	cd web && pnpm test:unit
 
-## Run E2E tests
+## Run E2E tests (requires live cloud.opencloud.test)
 test-e2e:
-	cd web && pnpm test:e2e
+	cd web && npx playwright test
+
+## Run Go unit tests
+test-go:
+	cd api && go test ./...
 
 ## Lint all code
 lint:
@@ -47,4 +62,18 @@ deploy: build
 
 ## Clean all build artifacts
 clean:
-	rm -rf web/dist web/node_modules
+	rm -rf web/dist web/node_modules api/voting-app
+
+## Package a distributable release zip
+## Creates: dist/feature-voting-web-$(VERSION).zip
+release: build
+	@echo "→ Packaging release $(VERSION)..."
+	@mkdir -p dist
+	@cd web && zip -r ../dist/feature-voting-web-$(VERSION).zip dist/
+	@cp install/docker-compose.override.yml dist/
+	@cp install/install.sh dist/
+	@echo "→ Release artifacts:"
+	@ls -lh dist/feature-voting-web-$(VERSION).zip dist/docker-compose.override.yml dist/install.sh
+	@echo ""
+	@echo "Upload these to a GitHub Release tagged $(VERSION)."
+
