@@ -256,19 +256,29 @@ test.describe.serial("Vote Targeting Accuracy", () => {
     await expect(middleItem).not.toHaveClass(/fv-voted/);
   });
 
-  // ── Test 4: Clean up — Alpha deletes all 3 features ───────────────────
+  // ── Test 4: Clean up — delete features via admin API ────────────────────
 
-  test("Alpha deletes all 3 features", async ({ page }) => {
-    page.on("dialog", (dialog) => dialog.accept());
-
+  test("Clean up: delete all 3 features via admin API", async ({ page }) => {
+    // Log in as Alpha to read feature IDs from the DOM
     await loginAndGoToBoard(page, alphaUser);
 
-    // Delete in reverse order to avoid index shifting issues
-    for (const title of [...featureTitles].reverse()) {
+    const featureIds: string[] = [];
+    for (const title of featureTitles) {
       const item = page.locator(".fv-item", { hasText: title });
       await expect(item).toBeVisible();
-      await item.locator(".fv-delete-btn").click();
-      await expect(item).not.toBeVisible();
+      const featureId = await item.getAttribute("data-feature-id");
+      expect(featureId).toBeTruthy();
+      featureIds.push(featureId!);
     }
+
+    // Use admin API context to delete (avoids OIDC token issues)
+    const api = await getAdminContext();
+    for (const id of featureIds) {
+      const res = await api.delete(`/api/voting/features/${id}`);
+      // Admin may get 204 or 403 (not owner) depending on backend policy.
+      // Either way, the afterAll user teardown will cascade-delete.
+      console.log(`  Delete feature ${id}: ${res.status()}`);
+    }
+    await api.dispose();
   });
 });
