@@ -304,7 +304,7 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <div v-if="isAdmin" class="fv-actions">
+            <div v-if="isAdmin || feature.created_by === currentUserId" class="fv-actions">
               <button
                 class="fv-actions-trigger"
                 :title="'Actions'"

@@ -84,54 +84,6 @@ async function globalSetup(config: FullConfig) {
     }
   }
 
-  // --- Space Creation & Sharing ---
-  const spaceName = `Feature Voting Data ${Date.now()}`;
-  console.log(`→ Creating project space: "${spaceName}"...`);
-  const drivesRes = await requestContext.get("/graph/v1.0/drives");
-  let spaceId = null;
-
-  const createRes = await requestContext.post("/graph/v1.0/drives", {
-    data: { name: spaceName },
-  });
-  if (createRes.ok()) {
-    const newSpace = await createRes.json();
-    spaceId = newSpace.id;
-    console.log(`  Created project space (ID: ${spaceId})`);
-  } else {
-    console.error(
-      `  Failed to create project space: ${createRes.status()} ${await createRes.text()}`,
-    );
-  }
-
-  if (spaceId) {
-    console.log("→ Sharing project space with test users...");
-    for (const u of createdUsers) {
-      const inviteRes = await requestContext.post(
-        `/graph/v1beta1/drives/${spaceId}/root/invite`,
-        {
-          data: {
-            recipients: [
-              {
-                objectId: u.id,
-                "@libre.graph.recipient.type": "user",
-              },
-            ],
-            // UUID for "Can edit" on a Space Root in LibreGraph
-            roles: ["58c63c02-1d89-4572-916a-870abc5a1b7d"],
-          },
-        },
-      );
-      if (inviteRes.ok()) {
-        console.log(`  Granted write access to ${u.username}`);
-      } else {
-        const errText = await inviteRes.text();
-        console.error(
-          `  Failed to grant access to ${u.username}: ${inviteRes.status()} ${errText}`,
-        );
-      }
-    }
-  }
-
   // Save users to a file for tests to consume
   const usersPath = path.join(__dirname, "test-users.json");
   fs.writeFileSync(usersPath, JSON.stringify(createdUsers, null, 2));
@@ -141,3 +93,4 @@ async function globalSetup(config: FullConfig) {
 }
 
 export default globalSetup;
+

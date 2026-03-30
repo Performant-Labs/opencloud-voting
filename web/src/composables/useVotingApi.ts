@@ -324,6 +324,9 @@ export function useVotingApi(options?: {
         error.value = resolveApiError(data.error_code, data.message);
         return false;
       }
+      // Optimistically increment the badge count on the feature
+      const f = features.value.find((f) => f.id === featureId);
+      if (f) f.comment_count = (f.comment_count || 0) + 1;
       return true;
     } catch (e) {
       error.value = (e as Error).message;
@@ -353,6 +356,9 @@ export function useVotingApi(options?: {
         error.value = resolveApiError(data.error_code, data.message);
         return false;
       }
+      // Optimistically decrement the badge count on the feature
+      const f = features.value.find((f) => f.id === featureId);
+      if (f) f.comment_count = Math.max(0, (f.comment_count || 1) - 1);
       return true;
     } catch (e) {
       error.value = (e as Error).message;
