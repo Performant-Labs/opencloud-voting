@@ -227,6 +227,82 @@ func TestListFeatures_WithVoteCounts(t *testing.T) {
 	}
 }
 
+// TestListFeatures_MultipleFeatures_CorrectVoteCounts verifies that vote
+// counts are correct for each feature when there are multiple features with
+// different numbers of votes. This catches the cross-product bug where
+// two LEFT JOINs on voting_votes can inflate COUNT().
+func TestListFeatures_MultipleFeatures_CorrectVoteCounts(t *testing.T) {
+	mux, store := setupTestApp(t)
+	ctx := context.Background()
+
+	// Create 3 features by different users.
+	if err := store.CreateFeature(ctx, "feat-a", "Feature Alpha", "desc A", "user-a"); err != nil {
+		t.Fatalf("create feat-a: %v", err)
+	}
+	if err := store.CreateFeature(ctx, "feat-b", "Feature Beta", "desc B", "user-b"); err != nil {
+		t.Fatalf("create feat-b: %v", err)
+	}
+	if err := store.CreateFeature(ctx, "feat-c", "Feature Charlie", "desc C", "user-c"); err != nil {
+		t.Fatalf("create feat-c: %v", err)
+	}
+
+	// feat-a: user-a (auto) + user-b + user-c = 3 votes
+	if _, err := store.ToggleVote(ctx, "feat-a", "user-b"); err != nil {
+		t.Fatalf("vote feat-a user-b: %v", err)
+	}
+	if _, err := store.ToggleVote(ctx, "feat-a", "user-c"); err != nil {
+		t.Fatalf("vote feat-a user-c: %v", err)
+	}
+
+	// feat-b: user-b (auto) + user-c = 2 votes
+	if _, err := store.ToggleVote(ctx, "feat-b", "user-c"); err != nil {
+		t.Fatalf("vote feat-b user-c: %v", err)
+	}
+
+	// feat-c: user-c (auto) only = 1 vote
+
+	// List as user-b (who voted on feat-a and created feat-b).
+	req := requestWithUser(http.MethodGet, "/api/voting/features", nil, "user-b")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list features: got %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	var resp FeatureListResponse
+	json.Unmarshal(rec.Body.Bytes(), &resp)
+
+	if resp.Total != 3 {
+		t.Fatalf("expected 3 features, got %d", resp.Total)
+	}
+
+	// Features should be sorted by vote_count DESC.
+	// feat-a=3, feat-b=2, feat-c=1
+	wantCounts := []struct {
+		id    string
+		count int
+		voted bool
+	}{
+		{"feat-a", 3, true},  // user-b voted
+		{"feat-b", 2, true},  // user-b is creator (auto-vote)
+		{"feat-c", 1, false}, // user-b didn't vote
+	}
+
+	for i, want := range wantCounts {
+		got := resp.Features[i]
+		if got.ID != want.id {
+			t.Errorf("feature[%d]: expected id=%q, got %q", i, want.id, got.ID)
+		}
+		if got.VoteCount != want.count {
+			t.Errorf("feature[%d] (%s): expected vote_count=%d, got %d", i, want.id, want.count, got.VoteCount)
+		}
+		if got.Voted != want.voted {
+			t.Errorf("feature[%d] (%s): expected voted=%v, got %v", i, want.id, want.voted, got.Voted)
+		}
+	}
+}
+
 // --- Step 540: Toggle Vote Tests ---
 
 func TestToggleVote_AddAndRemove(t *testing.T) {

@@ -28,7 +28,7 @@ func (s *VotingStore) ListFeatures(ctx context.Context, userID string) ([]Featur
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT
 			f.id, f.title, f.description, f.created_by, f.created_at,
-			COUNT(v.user_id) AS vote_count,
+			COUNT(DISTINCT v.user_id) AS vote_count,
 			CASE WHEN uv.user_id IS NOT NULL THEN 1 ELSE 0 END AS voted,
 			(SELECT COUNT(*) FROM voting_comments c WHERE c.feature_id = f.id) AS comment_count
 		FROM voting_features f
