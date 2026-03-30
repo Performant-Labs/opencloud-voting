@@ -195,3 +195,51 @@ OC_DOMAIN=your-domain.com \
     https://raw.githubusercontent.com/Performant-Labs/opencloud-voting/main/install/install.sh \
   | bash
 ```
+
+---
+
+## Expected OpenCloud Deployment
+
+Feature Voting is designed and tested against a specific OpenCloud deployment model. If your setup differs materially from what is described here, the installation steps may need adjustment.
+
+### Deployment model
+
+This app assumes OpenCloud is deployed using the official
+[`opencloud-compose`](https://github.com/opencloud-eu/opencloud-compose) Docker Compose stack — specifically, the base `docker-compose.yml` from that repository (version 5.0 or later).
+
+```
+opencloud-compose/
+├── docker-compose.yml        ← base stack (required)
+├── traefik/opencloud.yml     ← recommended (TLS + routing)
+├── config/
+│   └── opencloud/
+│       ├── proxy.yaml        ← where the /api/voting/ route goes
+│       └── apps/             ← where the frontend zip is unpacked
+│           └── feature-voting/
+└── .env                      ← OC_DOMAIN, LOG_LEVEL, etc.
+```
+
+### What it depends on
+
+| Dependency | How it's used |
+|:-----------|:--------------|
+| **Docker network `opencloud-net`** | The `voting-app` container must be on the same network as the `opencloud` container so the proxy can route to it by service name (`http://voting-app:8080`). The base `docker-compose.yml` defines this network. |
+| **Docker volume `shared-data`** | The SQLite database is stored in this shared volume. The base compose file defines it; the voting-app container mounts it at `/data`. If your deployment uses a different shared volume name, update `DB_PATH` and the volume reference in your compose file. |
+| **OpenCloud proxy service** | The OpenCloud proxy (built into the `opencloud` container) must be configured to forward `/api/voting/` requests to the sidecar. This is done via `config/opencloud/proxy.yaml`. Without this route, all voting API calls return 401 or 404. |
+| **OIDC issuer** | The sidecar validates Bearer tokens by fetching the JWKS from `${OC_OIDC_ISSUER}/.well-known/openid-configuration`. This must be the same issuer your OpenCloud instance uses — typically `https://${OC_DOMAIN}`. |
+| **Web apps directory** | OpenCloud serves static files from the volume mount `${OC_APPS_DIR:-./config/opencloud/apps}:/var/lib/opencloud/web/assets/apps`. The frontend zip must be unpacked under an `feature-voting/` subdirectory of that path. |
+
+### Minimum OpenCloud version
+
+OpenCloud **5.0** or later is required. Earlier versions used a different proxy configuration format and a different web extension manifest schema.
+
+### What this app does NOT require
+
+- Keycloak or external LDAP (the built-in OpenCloud IDM is sufficient)
+- Collabora, OnlyOffice, or any other add-on service
+- PostgreSQL (SQLite is the default; PostgreSQL is optional via `VOTING_DB_URL`)
+- A reverse proxy beyond the one built into the `opencloud` container
+
+### Kubernetes / non-Compose deployments
+
+This app has not been tested on Kubernetes. The concepts are directly portable (same Docker image, same environment variables, same proxy route), but the networking, volume, and proxy configuration will differ. If you deploy OpenCloud via Helm charts, treat the compose files in this repo as a reference implementation rather than an operational manifest.
