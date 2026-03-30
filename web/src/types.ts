@@ -6,6 +6,7 @@ export interface Feature {
   created_at: string;
   vote_count: number;
   voted: boolean;
+  comment_count: number;
 }
 
 export interface FeatureListResponse {

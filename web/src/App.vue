@@ -253,7 +253,7 @@ onUnmounted(() => {
                   <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
                     <path d="M21 6c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h11l4 4V6z"/>
                   </svg>
-                  {{ (commentsByFeature[feature.id] || []).length }} comment{{ (commentsByFeature[feature.id] || []).length === 1 ? '' : 's' }}
+                  {{ feature.comment_count }} comment{{ feature.comment_count === 1 ? '' : 's' }}
                 </button>
               </div>
 

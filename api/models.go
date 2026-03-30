@@ -7,13 +7,14 @@ import "time"
 // never `preferred_username` or `email` — per PRIVACY_ASSESSMENT.md
 // Section 3 (GDPR data minimization).
 type Feature struct {
-	ID          string    `json:"id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	CreatedBy   string    `json:"created_by"`
-	CreatedAt   time.Time `json:"created_at"`
-	VoteCount   int       `json:"vote_count"`
-	Voted       bool      `json:"voted"`
+	ID           string    `json:"id"`
+	Title        string    `json:"title"`
+	Description  string    `json:"description"`
+	CreatedBy    string    `json:"created_by"`
+	CreatedAt    time.Time `json:"created_at"`
+	VoteCount    int       `json:"vote_count"`
+	Voted        bool      `json:"voted"`
+	CommentCount int       `json:"comment_count"`
 }
 
 // Vote represents a single user's vote on a feature.

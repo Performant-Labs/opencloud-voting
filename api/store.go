@@ -29,7 +29,8 @@ func (s *VotingStore) ListFeatures(ctx context.Context, userID string) ([]Featur
 		SELECT
 			f.id, f.title, f.description, f.created_by, f.created_at,
 			COUNT(v.user_id) AS vote_count,
-			CASE WHEN uv.user_id IS NOT NULL THEN 1 ELSE 0 END AS voted
+			CASE WHEN uv.user_id IS NOT NULL THEN 1 ELSE 0 END AS voted,
+			(SELECT COUNT(*) FROM voting_comments c WHERE c.feature_id = f.id) AS comment_count
 		FROM voting_features f
 		LEFT JOIN voting_votes v ON f.id = v.feature_id
 		LEFT JOIN voting_votes uv ON f.id = uv.feature_id AND uv.user_id = ?
@@ -44,7 +45,7 @@ func (s *VotingStore) ListFeatures(ctx context.Context, userID string) ([]Featur
 	var features []Feature
 	for rows.Next() {
 		var f Feature
-		if err := rows.Scan(&f.ID, &f.Title, &f.Description, &f.CreatedBy, &f.CreatedAt, &f.VoteCount, &f.Voted); err != nil {
+		if err := rows.Scan(&f.ID, &f.Title, &f.Description, &f.CreatedBy, &f.CreatedAt, &f.VoteCount, &f.Voted, &f.CommentCount); err != nil {
 			return nil, fmt.Errorf("scan feature row: %w", err)
 		}
 		features = append(features, f)
