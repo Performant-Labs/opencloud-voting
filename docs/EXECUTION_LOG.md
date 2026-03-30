@@ -215,3 +215,116 @@ This document records every architectural decision, technical gap bridged, and d
 
 ### 720 — I18N (Deferred)
 - **Status**: Deferred to a separate workstream. The `resolveApiError()` function in the composable is pre-wired with a message map that can be replaced with `$gettext()` calls when `vue3-gettext` is configured.
+
+---
+
+## Post-Phase 700: Incremental Feature Additions
+
+> [!NOTE]
+> The following entries document work completed across several conversations after Phase 700,
+> before the formal Phase 800 smoke-test gate was executed. This work is real, committed, and
+> verified — it was completed out of sequence with the plan but is captured here for audit
+> continuity.
+
+### A1 — NewFeature.vue Component Extraction
+- **When**: 2026-03-29 (after Phase 700)
+- **Commit**: `20564dd`
+- **How**: Extracted the feature submission form out of the monolithic `App.vue` into a dedicated `web/src/NewFeature.vue` single-file component with its own route (`/feature-voting/new`). The board (`/feature-voting/board`) now contains only the feature list.
+- **Why**: The `App.vue` was growing unmanageable. Routing the submission form to its own page mirrors OpenCloud's own extension architecture pattern (each logical screen = a route), and makes both components independently testable.
+- **Impact**: `useVotingApi.ts` now uses `router.push('/feature-voting/board')` after a successful submission. The E2E test suite was updated to navigate to `/feature-voting/new` before filling the submission form.
+
+### A2 — Case-Insensitive Uniqueness Constraint for Feature Titles
+- **When**: 2026-03-29 (after Phase 700)
+- **Commit**: `77fdecf`
+- **How**: Added a `UNIQUE` constraint in `api/store.go`'s `CreateFeature` to enforce case-insensitive title deduplication using `COLLATE NOCASE` on the SQLite column. The Go handler maps the resulting `UNIQUE constraint failed` SQLite error to `ERR_DUPLICATE_TITLE` (HTTP 409).
+- **Why**: Users were creating near-duplicate features like "Dark Mode" and "dark mode". The database-level constraint is the only way to enforce this atomically without a race condition.
+- **Decision**: Used `COLLATE NOCASE` rather than lowercasing in application code, as the DB constraint is enforced even if multiple instances of the sidecar write concurrently under future horizontal scaling.
+
+### A3 — Backend Capacity Limit (2,500 Features)
+- **When**: 2026-03-29 (conversation `01f9c77f`)
+- **Commit**: `f036116`
+- **How**:
+  - `api/store.go`: Added `CountFeatures(ctx context.Context) (int, error)` using `SELECT COUNT(*) FROM voting_features`.
+  - `api/handlers.go`: `createFeature` calls `CountFeatures` before any write. If `count >= 2500`, responds with HTTP 403 `ERR_LIMIT_REACHED`.
+  - `api/handlers_test.go`: Added `TestCreateFeature_CapacityLimitReached` which seeds 2,500 rows and asserts the 403 block.
+- **Why**: Without an upper bound, the Fuse.js in-browser search index would eventually exhaust browser memory as the feature list grew unbounded. 2,500 is a generous but defensible ceiling for an enterprise voting board. The HTTP 403 (not 429) signals a permanent board state, not a transient rate-limit condition.
+- **Verification**: `go test ./...` — all tests pass.
+
+### A4 — Fuse.js Client-Side Full-Text Search
+- **When**: 2026-03-29 (conversation `01f9c77f`)
+- **Commit**: `cff9378`
+- **How**:
+  - `pnpm add fuse.js` added to `web/package.json`.
+  - `web/src/App.vue`: Added a `<input type="search" v-model="searchQuery">` above the feature list. A reactive `Fuse` instance is computed over `features.value` with `{ name: 'title', weight: 2.0 }` and `{ name: 'description', weight: 1.0 }`. Threshold `0.3` for typo-tolerance; `ignoreLocation: true` for mid-sentence matches. Template loops over `filteredFeatures` (Fuse results) instead of raw `features`.
+- **Why**: Server-side `LIKE` queries are blocked by the database-agnostic constraint. Client-side Fuse.js requires zero API changes and operates entirely against the already-loaded `features.value` array, adding zero server round-trips.
+- **Decision**: Rejected Bleve (server-side Go search library) because it would add a stateful index requiring persistence, defeating the minimal-sidecar architecture.
+- **Verification**: `pnpm build` succeeds. Manual test: searching "dat" bubbles title-matched features above description-matched ones.
+
+### A5 — Breadcrumb Navigation Component
+- **When**: 2026-03-29 (after A4)
+- **Commit**: `a7ec42b`
+- **How**: Created `web/src/components/Breadcrumbs.vue`. The component renders `Home > Feature Voting > [current page label]` using OpenCloud's existing navigation paradigm. All routes pass a `breadcrumb` meta property; `Breadcrumbs.vue` reads `route.meta.breadcrumb` to build the trail.
+- **Why**: Without breadcrumbs, users navigating to `/feature-voting/new` had no visual anchor. The OpenCloud shell provides no automatic breadcrumb injection for extension routes — the extension must supply its own.
+- **Impact**: `App.vue` now imports `Breadcrumbs` and renders it at the top of every view. The component uses `var(--oc-role-on-surface)` / `inherit` for color so it adapts to theme changes.
+
+### A6 — Inline Commenting on Feature Cards
+- **When**: 2026-03-29 (after A5)
+- **Commit**: `4c3019f`
+- **How**:
+  - `api/store.go`: Added `voting_comments` table (`id`, `feature_id`, `user_id`, `body`, `created_at`). `ON DELETE CASCADE` on `feature_id` ensures comment orphan cleanup when a feature is deleted. New store methods: `ListComments`, `CreateComment`.
+  - `api/handlers.go`: Added `GET /api/voting/features/{id}/comments` and `POST /api/voting/features/{id}/comments` endpoints. Enforces 1,000-char body limit; returns `ERR_COMMENT_TOO_LONG` on violation.
+  - `web/src/App.vue`: Feature cards now show a comment count badge (`.fv-comment-count`). Clicking it expands an inline comment thread for that feature. Comments display pseudonymous `sub` IDs per PRIVACY_ASSESSMENT.md.
+- **Why**: The original PLAN.md did not specify comments, but this was an additive, non-breaking feature that improves the value prop for the upstream submission. Comments use the same OIDC auth middleware and `voting_*` prefixed table convention.
+- **⚠️ Bug found and fixed immediately**: On initial page load, comment counts showed `0` instead of the actual stored count. Root cause: `ListFeatures` query used a bare `COUNT(*)` on `voting_comments` without the join. Fixed by adding a subquery to the `GET /api/voting/features` response (`ab56a2a`).
+
+### A7 — Optimistic Vote Update Fix (Visual Re-sort Bug)
+- **When**: 2026-03-29 (after A6)
+- **Commit**: `550dad3`
+- **How**: When a user clicked the vote button, the Vue frontend immediately updated the local `feature.vote_count` (optimistic update) and called `features.value.sort(…)`. This triggered Vue's reactivity to re-render the list in sorted order — visually moving the clicked card while the click animation was still playing, causing the sort position to shift mid-interaction. Fixed by deferring the re-sort to the next API response cycle (i.e., after the server confirms the new count) rather than immediately on the local mutation.
+- **Why**: Optimistic updates must not re-sort the visible list mid-gesture. The visual glitch was subtle but broke the user's mental model of "which card did I just click."
+- **Decision**: We kept optimistic vote-count increments (for instant feedback) but only re-sort after `await toggleVote()` resolves.
+
+### A8 — Scrolling Fix Inside OpenCloud Shell
+- **When**: 2026-03-29 (after A7)
+- **Commit**: `7e80405`
+- **How**: Applied `height: 100%; overflow-y: auto;` to `.fv-container` in `web/src/App.vue`. The OpenCloud shell sets `overflow: hidden` on all ancestor containers, so extensions must scroll internally within their allocated viewport rather than relying on page-level scroll.
+- **Why**: When the feature list exceeded the viewport height, content below the fold was unreachable. This is an OpenCloud-specific layout constraint not obvious from the documentation — discovered via live browser inspection.
+- **Decision**: Documented in `docs/THEMING.md` Section 4 ("Layout Constraints") so future contributions can avoid re-discovering this.
+
+### A9 — Dark Mode Theming (--oc-role-* Token Migration)
+- **When**: 2026-03-29 (conversation `a603bc8b`)
+- **Commits**: `ca0e5a9`, `5890d71`, `a855cf1`, `6ec6cc6`, `4de8949`
+- **How**:
+  - **Research**: Read the OpenCloud Design System source (`packages/design-system/src/styles/defaults.css`) to inventory all official `--oc-role-*` CSS custom properties. Confirmed that `--oc-color-*` names (used during initial development) do **not** exist in the runtime and always resolved to their fallback values.
+  - **Migration**: Replaced all invented `--oc-color-*` references across `web/src/App.vue`, `web/src/NewFeature.vue`, and `web/src/components/Breadcrumbs.vue` (~53 properties total) with correct `--oc-role-*` tokens or `inherit` + `opacity`. Zero hardcoded hex values remain outside of token fallbacks.
+  - **Token alignment**: Used OpenCloud's `useThemeStore` composable to detect the active theme (`'dark'` / `'light'`) rather than relying on `prefers-color-scheme` media query. The shell's theme switcher modifies CSS custom properties on `:root`; our extension now inherits them correctly.
+  - **Documentation**: Created `docs/THEMING.md` — a complete reference documenting every `--oc-role-*` token, its light-mode value, the broken `--oc-color-*` pattern to avoid, and the layout constraint (`overflow-y: auto`). This serves as a reference for future extension developers.
+- **Why**: The initial dark mode implementation used guessed CSS variable names that coincidentally matched nothing in the runtime. The extension was permanently stuck in light mode. The fix required understanding OpenCloud's Material Design 3 token system from the source.
+- **Decision**: Adopted a **hybrid strategy**: direct `--oc-role-*` tokens for semantic colors (primary, error, borders) and `inherit + opacity` for general text, matching how the native OpenCloud extensions handle text color.
+- **Verification**: Browser-verified in both Light and Dark themes via OpenCloud Preferences → Theme switcher.
+
+### A10 — Vote-Count Inflation Bug Fix (SQL Cross-Product)
+- **When**: 2026-03-29 (end of conversation `a603bc8b`)
+- **Commit**: `c25f8fe`
+- **How**: The `ListFeatures` SQL query in `api/store.go` used a bare `COUNT(*)` in a `LEFT JOIN` with `voting_votes` and `voting_comments`. When a feature had both votes and comments, the join produced a Cartesian cross-product — e.g., 2 votes × 3 comments = 6 rows, so `COUNT(*)` returned 6 instead of 2. Fixed by replacing with `COUNT(DISTINCT voting_votes.user_id)`.
+  ```sql
+  -- Before (WRONG):
+  COUNT(*) AS vote_count
+  -- After (CORRECT):
+  COUNT(DISTINCT voting_votes.user_id) AS vote_count
+  ```
+- **Why**: This was a critical correctness bug — vote counts would inflate silently as features accumulated comments. It was undetectable in unit tests (which used separate tables with no cross-join) but appeared immediately in E2E tests when both votes and comments coexisted.
+- **⚠️ Root cause of test failure**: The bug was discovered during the vote-targeting E2E test (A11 below) when Beta's vote on one feature appeared to increase the vote counts of ALL features.
+
+### A11 — Vote-Targeting E2E Test Suite
+- **When**: 2026-03-29 (end of conversation `a603bc8b`)
+- **Commits**: `9ccfed5`, `5557170`
+- **How**: Created `web/tests/e2e/vote-targeting.spec.ts` — a dedicated 4-test Playwright suite that explicitly verifies vote accuracy across multiple features:
+  1. **Alpha creates 3 features** — verifies each gets 1 vote (auto-vote on creation).
+  2. **Beta votes on the MIDDLE feature only** — asserts only the middle feature's count increments from 1 → 2; the first and last remain at 1.
+  3. **Beta un-votes on the middle feature** — asserts middle count drops back to 1; others unchanged.
+  4. **Cleanup** — deletes all 3 created features via the admin API (bypassing OIDC token issues).
+  - `test.beforeAll` / `test.afterAll` use the Graph API to create and delete two dedicated test users (`test_votetarget_alpha`, `test_votetarget_beta`) with automatic cleanup regardless of test outcome.
+- **Why**: The vote-count inflation bug (A10) was caught precisely because this test failed: Beta voting on the middle feature caused all three features to appear at count 2. The test now serves as a permanent regression guard for this class of bug.
+- **Verification**: All 4 tests pass after the `COUNT(DISTINCT)` fix was applied.
+
