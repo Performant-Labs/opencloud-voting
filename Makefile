@@ -1,8 +1,10 @@
-.PHONY: install build build-watch lint test test-e2e test-go check-types format deploy clean release build-api
+.PHONY: install build build-watch lint test test-e2e test-go check-types format deploy clean release build-api build-image publish release-all
 
 OC_SERVER_DIR ?= $(HOME)/Sites/pl-opencloud-server
 OC_APP_DIR    := $(OC_SERVER_DIR)/config/opencloud/apps/feature-voting
 VERSION       ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+IMAGE         := ghcr.io/performant-labs/opencloud-voting-api
+REPO          := Performant-Labs/opencloud-voting
 
 ## Install all dependencies
 install:
@@ -26,9 +28,9 @@ build-api:
 
 ## Build Docker image for the Go sidecar
 build-image:
-	docker build -t ghcr.io/performant-labs/opencloud-voting-api:$(VERSION) api/
-	docker tag ghcr.io/performant-labs/opencloud-voting-api:$(VERSION) \
-	           ghcr.io/performant-labs/opencloud-voting-api:latest
+	docker build -t $(IMAGE):$(VERSION) api/
+	docker tag $(IMAGE):$(VERSION) $(IMAGE):latest
+	@echo "→ Built $(IMAGE):$(VERSION)"
 
 ## Run frontend unit tests
 test:
@@ -62,18 +64,60 @@ deploy: build
 
 ## Clean all build artifacts
 clean:
-	rm -rf web/dist web/node_modules api/voting-app
+	rm -rf web/dist web/node_modules api/voting-app dist/
 
-## Package a distributable release zip
-## Creates: dist/feature-voting-web-$(VERSION).zip
+## Package distributable release assets into dist/
+## Usage: make release VERSION=v0.1.0
 release: build
 	@echo "→ Packaging release $(VERSION)..."
 	@mkdir -p dist
 	@cd web && zip -r ../dist/feature-voting-web-$(VERSION).zip dist/
 	@cp install/docker-compose.override.yml dist/
+	@cp install/opencloud.yml dist/
 	@cp install/install.sh dist/
-	@echo "→ Release artifacts:"
-	@ls -lh dist/feature-voting-web-$(VERSION).zip dist/docker-compose.override.yml dist/install.sh
 	@echo ""
-	@echo "Upload these to a GitHub Release tagged $(VERSION)."
+	@echo "→ Release assets ready in dist/:"
+	@ls -lh dist/feature-voting-web-$(VERSION).zip \
+	         dist/docker-compose.override.yml \
+	         dist/opencloud.yml \
+	         dist/install.sh
 
+## Create GitHub Release, upload assets, build & push Docker image to GHCR.
+## Requires: gh CLI authenticated, docker login ghcr.io
+## Usage: make publish VERSION=v0.1.0
+publish: release build-image
+	@echo ""
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo " Publishing $(VERSION) to GitHub + GHCR"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo ""
+	@# Create and push git tag if it does not already exist
+	@if git rev-parse $(VERSION) >/dev/null 2>&1; then \
+	  echo "→ Tag $(VERSION) already exists — skipping tag creation"; \
+	else \
+	  git tag $(VERSION) && git push origin $(VERSION) && echo "→ Tagged and pushed $(VERSION)"; \
+	fi
+	@echo ""
+	@echo "→ Creating GitHub Release $(VERSION)..."
+	@gh release create $(VERSION) \
+	  --repo $(REPO) \
+	  --title "Feature Voting $(VERSION)" \
+	  --generate-notes \
+	  dist/feature-voting-web-$(VERSION).zip \
+	  dist/docker-compose.override.yml \
+	  dist/opencloud.yml \
+	  dist/install.sh
+	@echo ""
+	@echo "→ Pushing Docker image to GHCR..."
+	@docker login ghcr.io
+	@docker push $(IMAGE):$(VERSION)
+	@docker push $(IMAGE):latest
+	@echo ""
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo " ✓ Release $(VERSION) published:"
+	@echo "   GitHub: https://github.com/$(REPO)/releases/tag/$(VERSION)"
+	@echo "   Image:  $(IMAGE):$(VERSION)"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+## One-shot: package + publish. Usage: make release-all VERSION=v0.1.0
+release-all: publish
