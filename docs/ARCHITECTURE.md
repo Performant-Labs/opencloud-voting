@@ -190,6 +190,17 @@ write path. See `docs/load-test-results/` for raw `hey` output.
 
 ---
 
+## License Rationale
+
+This project is licensed under **AGPL-3.0**. 
+
+### Why AGPL-3.0?
+1. **Closing the SaaS Loophole**: Standard GPL triggers source disclosure only upon distribution. AGPL triggers it upon network interaction, ensuring that any cloud-hosted forks remain open-source.
+2. **Upstream Compatibility**: Aligns with OpenCloud's core licensing, simplifying any future upstream contributions.
+3. **Community Protection**: Protects the feature-voting ecosystem from being "privatized" by third-party hosting providers who might make proprietary improvements without sharing them.
+
+---
+
 ## References
 
 - [OpenCloud Proxy Service](https://github.com/opencloud-eu/opencloud/blob/main/services/proxy/pkg/config/config.go) — `Route` struct
