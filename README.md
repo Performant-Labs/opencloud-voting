@@ -134,7 +134,7 @@ comments: id, feature_id, user_id, body, created_at
 | **Build** | Vite |
 | **API** | Go 1.22, `net/http` (stdlib only — no framework) |
 | **Database** | SQLite (WAL mode) via `mattn/go-sqlite3` (CGO, statically linked against musl) |
-| **Auth** | OIDC JWT verification via `golang-jwt/jwt` |
+| **Auth** | OIDC JWT verification via `coreos/go-oidc/v3` |
 | **Testing** | Playwright E2E (18 tests), Go unit tests, `hey` load tests |
 
 ---

@@ -52,7 +52,7 @@ All tests run against `https://cloud.opencloud.test/api/voting` on 2026-03-29.
 | C3 | Oversized title (300 chars, max is 255) | `400` | `400` | ✅ PASS |
 | C4 | Empty title | `400` | `400` | ✅ PASS |
 
-**Finding — C1 (SQL Injection):** The SQLi payload was stored as literal text and the `features` table was not dropped. Verification confirmed the table remained intact and the string was stored with the special characters intact (not interpreted). This confirms the Go backend uses parameterized SQL queries (`?` placeholders via the `modernc.org/sqlite` driver), which pass user input as data values, never interpolating it into the query string.
+**Finding — C1 (SQL Injection):** The SQLi payload was stored as literal text and the `features` table was not dropped. Verification confirmed the table remained intact and the string was stored with the special characters intact (not interpreted). This confirms the Go backend uses parameterized SQL queries (`?` placeholders via the `mattn/go-sqlite3` driver), which pass user input as data values, never interpolating it into the query string.
 
 **Finding — C2 (XSS):** The `<script>` tag was accepted by the API (correct — the API is not an HTML renderer; sanitization belongs at the render layer) and stored as a raw string. On the Vue.js frontend, `{{ feature.title }}` renders via Vue's text interpolation which HTML-encodes all content — `<` becomes `&lt;`, `>` becomes `&gt;`. The script tag is never executed in the browser. No `v-html` directives are used anywhere in the frontend codebase.
 

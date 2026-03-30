@@ -205,7 +205,7 @@ This project is licensed under **AGPL-3.0**.
 
 - [OpenCloud Proxy Service](https://github.com/opencloud-eu/opencloud/blob/main/services/proxy/pkg/config/config.go) — `Route` struct
 - [OpenCloud Web Extension SDK](https://www.npmjs.com/package/@opencloud-eu/extension-sdk) — `defineWebApplication`
-- [`modernc.org/sqlite`](https://pkg.go.dev/modernc.org/sqlite) — pure Go SQLite driver
-- [`golang-jwt/jwt`](https://github.com/golang-jwt/jwt) — JWT verification
+- [`mattn/go-sqlite3`](https://github.com/mattn/go-sqlite3) — CGO SQLite driver (statically linked against musl)
+- [`coreos/go-oidc/v3`](https://github.com/coreos/go-oidc) — OIDC discovery and JWT verification
 - [SQLite WAL mode](https://www.sqlite.org/wal.html) — write-ahead logging
 - [OpenCloud Compose](https://github.com/opencloud-eu/opencloud-compose) — reference deployment
