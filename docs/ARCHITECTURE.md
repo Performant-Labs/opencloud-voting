@@ -165,7 +165,7 @@ without architectural refactoring.
 
 | Decision | Rationale |
 |:---------|:----------|
-| `modernc.org/sqlite` (pure Go) | No CGO dependency — cross-compiles cleanly for Alpine Docker images without a C toolchain |
+| `mattn/go-sqlite3` (CGO) | Statically linked against musl-libc in the builder stage (`CGO_ENABLED=1`, Alpine + gcc + musl-dev); the runtime image needs no glibc |
 | SQLite WAL mode | Allows concurrent reads while serializing writes; eliminates `database is locked` errors under load |
 | `net/http` stdlib only | Avoids framework lock-in; aligns with OpenCloud's own internal services which use chi or stdlib |
 | Per-user token bucket rate limiter | Prevents a single aggressive client from exhausting the vote endpoint without complex infra (no Redis, no distributed state) |

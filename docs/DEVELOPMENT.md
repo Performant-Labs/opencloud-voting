@@ -36,8 +36,7 @@ opencloud-voting/
 ├── install/                    # Release packaging artifacts
 │   ├── docker-compose.override.yml   # Method A install file
 │   ├── opencloud.yml                 # Method B install file
-│   ├── install.sh                    # One-liner install script
-│   └── INSTALL.md                    # Detailed install reference
+│   └── install.sh                    # One-liner install script
 │
 ├── docs/                       # Project documentation
 │   ├── ARCHITECTURE.md         # Architecture decision record

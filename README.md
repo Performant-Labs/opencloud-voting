@@ -131,7 +131,7 @@ comments: id, feature_id, user_id, body, created_at
 | **Frontend** | Vue 3, TypeScript, `@opencloud-eu/web-pkg` |
 | **Build** | Vite |
 | **API** | Go 1.22, `net/http` (stdlib only — no framework) |
-| **Database** | SQLite (WAL mode) via `modernc.org/sqlite` (pure Go, no CGO) |
+| **Database** | SQLite (WAL mode) via `mattn/go-sqlite3` (CGO, statically linked against musl) |
 | **Auth** | OIDC JWT verification via `golang-jwt/jwt` |
 | **Testing** | Playwright E2E (18 tests), Go unit tests, `hey` load tests |
 

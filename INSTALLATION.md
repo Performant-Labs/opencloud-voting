@@ -1,6 +1,13 @@
-# Installing Feature Voting for OpenCloud
+This application consists of two parts: a **Web Extension** (UI) and a **Sidecar API** (Backend). Both are required and are installed together.
 
-This guide covers two installation methods. **Method A (Sidecar Override)** is recommended for most deployments. Method B is provided for users who work directly with the `opencloud-compose` modular `COMPOSE_FILE` pattern.
+This guide covers two **installation methods** and two **configuration approaches**. Review the table below to choose the path that fits your needs.
+
+| Decision | Options | Best For |
+|:---------|:--------|:---------|
+| **Installation method** | [Method A (Override)](#method-a--sidecar-override-recommended) | **Quick Start**: Self-contained and easiest to set up. |
+| | [Method B (Append)](#method-b--compose_file-append-opencloud-compose-modular-pattern) | **Standard**: Aligns with official `opencloud-compose` patterns. |
+| **Configuration approach** | [Path 1 (.env)](#configuration-path-1--env-file) | **Simplicity**: Keeps all settings in a single file. |
+| | [Path 2 (Inline)](#configuration-path-2--inline-in-the-compose-file) | **Control**: Allows overriding hidden or advanced defaults. |
 
 ---
 
@@ -56,7 +63,14 @@ policy:
     backend: http://voting-app:8080
 ```
 
-### Step 4 — Start the sidecar
+### Step 4 — Configure
+
+Choose a configuration approach and apply it before starting the sidecar:
+
+- [Path 1 — via `.env` file](#configuration-path-1--env-file)
+- [Path 2 — inline in the compose file](#configuration-path-2--inline-in-the-compose-file)
+
+### Step 5 — Start the sidecar
 
 Docker Compose automatically merges `docker-compose.override.yml` with the base file when both are present:
 
@@ -64,13 +78,13 @@ Docker Compose automatically merges `docker-compose.override.yml` with the base 
 docker compose up -d voting-app
 ```
 
-### Step 5 — Restart OpenCloud
+### Step 6 — Restart OpenCloud
 
 ```bash
 docker compose restart opencloud
 ```
 
-### Step 6 — Verify
+### Step 7 — Verify
 
 ```bash
 # Replace <token> with a valid Bearer token from your OpenCloud session
@@ -102,13 +116,20 @@ curl -fsSL \
 
 ### Step 2 — Deploy frontend assets
 
-Same as Method A, Step 2.
+Same as [Method A, Step 2](#step-2--deploy-the-frontend-assets).
 
 ### Step 3 — Add the proxy route
 
-Same as Method A, Step 3.
+Same as [Method A, Step 3](#step-3--add-the-proxy-route).
 
-### Step 4 — Append to COMPOSE_FILE
+### Step 4 — Configure
+
+Choose a configuration approach and apply it before starting the sidecar:
+
+- [Path 1 — via `.env` file](#configuration-path-1--env-file)
+- [Path 2 — inline in the compose file](#configuration-path-2--inline-in-the-compose-file)
+
+### Step 5 — Append to COMPOSE_FILE
 
 In your `.env` file, append the new compose file:
 
@@ -126,28 +147,64 @@ Then bring up the new service:
 docker compose up -d voting-app
 ```
 
-### Step 5 — Restart OpenCloud
+### Step 6 — Restart OpenCloud
 
 ```bash
 docker compose restart opencloud
 ```
 
-### Step 6 — Verify
+### Step 7 — Verify
 
-Same as Method A, Step 6.
+Same as [Method A, Step 7](#step-7--verify).
 
 ---
 
 ## Configuration
 
-Both methods support the same environment variables via your `.env` file or inline in the compose file:
+The voting-app container reads four environment variables. There are two ways to set them.
 
-| Variable | Default | Description |
-|:---------|:--------|:------------|
-| `OC_OIDC_ISSUER` | `https://cloud.opencloud.test` | Your OpenCloud domain — **must match your `OC_DOMAIN`** |
-| `DB_PATH` | `/data/feature-voting.sqlite` | SQLite database path inside the container |
+### Configuration Path 1 — `.env` file
+
+The compose files expose user-facing aliases in your `.env` file and translate them to the container variables automatically. This is the simpler approach and keeps all your deployment settings in one place.
+
+| `.env` variable | Default | Description |
+|:----------------|:--------|:------------|
+| `OC_DOMAIN` | `cloud.opencloud.test` | Your OpenCloud domain. Sets the OIDC issuer and proxy base URL. |
 | `VOTING_DB_URL` | _(empty)_ | Optional PostgreSQL DSN. If set, SQLite is not used. Format: `postgres://user:pass@host/db?sslmode=disable` |
 | `LOG_LEVEL` | `info` | Log verbosity: `debug`, `info`, `warn`, `error` |
+
+> `DB_PATH` (the SQLite file location inside the container) is hardcoded to `/data/feature-voting.sqlite` in the compose files. To change it, use Path 2.
+
+**Example `.env` addition:**
+
+```dotenv
+OC_DOMAIN=cloud.example.com
+LOG_LEVEL=debug
+# VOTING_DB_URL=postgres://user:pass@db-host/voting?sslmode=disable
+```
+
+---
+
+### Configuration Path 2 — Inline in the compose file
+
+Edit the `environment:` block in `docker-compose.override.yml` (Method A) or `feature-voting/opencloud.yml` (Method B) to set the container variables directly. Use this approach when you need to override values that have no `.env` alias, such as `DB_PATH`.
+
+| Container variable | Default | Description |
+|:-------------------|:--------|:------------|
+| `OC_OIDC_ISSUER` | `https://cloud.opencloud.test` | OIDC issuer URL for JWT validation — must match your OpenCloud domain |
+| `DB_PATH` | `/data/feature-voting.sqlite` | SQLite database path inside the container |
+| `OC_DB_URL` | _(empty)_ | Optional PostgreSQL DSN. If set, SQLite is not used. Format: `postgres://user:pass@host/db?sslmode=disable` |
+| `OC_LOG_LEVEL` | `info` | Log verbosity: `debug`, `info`, `warn`, `error` |
+
+**Example compose snippet:**
+
+```yaml
+environment:
+  OC_OIDC_ISSUER: "https://cloud.example.com"
+  DB_PATH: "/data/feature-voting.sqlite"
+  OC_LOG_LEVEL: "debug"
+  # OC_DB_URL: "postgres://user:pass@db-host/voting?sslmode=disable"
+```
 
 ---
 
@@ -187,7 +244,7 @@ docker volume rm $(docker volume ls -q | grep shared-data)
 
 ## One-liner (Method A only)
 
-Automates Steps 1–4 above. Review the script before running it.
+Automates Steps 1–3 above. Review the script before running it.
 
 ```bash
 OC_DOMAIN=your-domain.com \
@@ -227,7 +284,7 @@ opencloud-compose/
 | **Docker volume `shared-data`** | The SQLite database is stored in this shared volume. The base compose file defines it; the voting-app container mounts it at `/data`. If your deployment uses a different shared volume name, update `DB_PATH` and the volume reference in your compose file. |
 | **OpenCloud proxy service** | The OpenCloud proxy (built into the `opencloud` container) must be configured to forward `/api/voting/` requests to the sidecar. This is done via `config/opencloud/proxy.yaml`. Without this route, all voting API calls return 401 or 404. |
 | **OIDC issuer** | The sidecar validates Bearer tokens by fetching the JWKS from `${OC_OIDC_ISSUER}/.well-known/openid-configuration`. This must be the same issuer your OpenCloud instance uses — typically `https://${OC_DOMAIN}`. |
-| **Web apps directory** | OpenCloud serves static files from the volume mount `${OC_APPS_DIR:-./config/opencloud/apps}:/var/lib/opencloud/web/assets/apps`. The frontend zip must be unpacked under an `feature-voting/` subdirectory of that path. |
+| **Web apps directory** | OpenCloud serves static files from the volume mount `${OC_APPS_DIR:-./config/opencloud/apps}:/var/lib/opencloud/web/assets/apps`. The frontend zip must be unpacked under a `feature-voting/` subdirectory of that path. |
 
 ### Minimum OpenCloud version
 
@@ -237,7 +294,7 @@ OpenCloud **5.0** or later is required. Earlier versions used a different proxy 
 
 - Keycloak or external LDAP (the built-in OpenCloud IDM is sufficient)
 - Collabora, OnlyOffice, or any other add-on service
-- PostgreSQL (SQLite is the default; PostgreSQL is optional via `VOTING_DB_URL`)
+- PostgreSQL (SQLite is the default; PostgreSQL is optional via `VOTING_DB_URL` / `OC_DB_URL`)
 - A reverse proxy beyond the one built into the `opencloud` container
 
 ### Kubernetes / non-Compose deployments
