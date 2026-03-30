@@ -57,6 +57,13 @@ func (s *VotingStore) ListFeatures(ctx context.Context, userID string) ([]Featur
 	return features, nil
 }
 
+// CountFeatures returns the total active number of features in the system.
+func (s *VotingStore) CountFeatures(ctx context.Context) (int, error) {
+	var count int
+	err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM voting_features").Scan(&count)
+	return count, err
+}
+
 // FeatureExists checks if a feature with the given name already exists (case-insensitive).
 func (s *VotingStore) FeatureExists(ctx context.Context, title string) (bool, error) {
 	var exists int

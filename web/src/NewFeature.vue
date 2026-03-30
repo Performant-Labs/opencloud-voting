@@ -1,45 +1,50 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useAuthStore } from '@opencloud-eu/web-pkg'
-import { useVotingApi } from './composables/useVotingApi'
+import { ref } from "vue";
+import { useAuthStore } from "@opencloud-eu/web-pkg";
+import { useVotingApi } from "./composables/useVotingApi";
 
-const authStore = useAuthStore()
-const getAccessToken = () => (authStore as any).accessToken
+const authStore = useAuthStore();
+const getAccessToken = () => (authStore as any).accessToken;
 
-const { createFeature, submitting, error, dismissError } = useVotingApi({ accessToken: getAccessToken })
+const { createFeature, submitting, error, dismissError } = useVotingApi({
+  accessToken: getAccessToken,
+});
 
-const newTitle = ref('')
-const newDescription = ref('')
-const formError = ref('')
+const newTitle = ref("");
+const newDescription = ref("");
+const formError = ref("");
 
 async function handleSubmit() {
-  formError.value = ''
-  const title = newTitle.value.trim()
+  formError.value = "";
+  const title = newTitle.value.trim();
   if (!title) {
-    formError.value = 'Title is required'
-    return
+    formError.value = "Title is required";
+    return;
   }
 
-  const success = await createFeature(title, newDescription.value.trim())
+  const success = await createFeature(title, newDescription.value.trim());
   if (success) {
-    window.history.back()
+    window.history.back();
   } else if (error.value) {
-    formError.value = error.value
+    formError.value = error.value;
   }
 }
-
 </script>
 
 <template>
   <div class="fv-container">
     <header class="fv-header">
       <h1>Suggest a Feature</h1>
-      <p class="fv-subtitle">Submit your idea for the OpenCloud Feature Voting board.</p>
+      <p class="fv-subtitle">
+        Submit your idea for the OpenCloud Feature Voting board.
+      </p>
     </header>
 
     <div v-if="error && !formError" class="fv-error-banner" role="alert">
       <span>{{ error }}</span>
-      <button class="fv-error-dismiss" @click="dismissError" title="Dismiss">&#x2715;</button>
+      <button class="fv-error-dismiss" @click="dismissError" title="Dismiss">
+        &#x2715;
+      </button>
     </div>
 
     <section class="fv-submit-form">
@@ -62,9 +67,14 @@ async function handleSubmit() {
         />
         <div class="fv-form-actions">
           <button type="submit" class="fv-btn-primary" :disabled="submitting">
-            {{ submitting ? 'Submitting…' : 'Submit' }}
+            {{ submitting ? "Submitting…" : "Submit" }}
           </button>
-          <button type="button" class="fv-btn-secondary" @click="$router.push('/feature-voting/board')" :disabled="submitting">
+          <button
+            type="button"
+            class="fv-btn-secondary"
+            @click="$router.push('/feature-voting/board')"
+            :disabled="submitting"
+          >
             Cancel
           </button>
         </div>
@@ -171,7 +181,9 @@ async function handleSubmit() {
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, opacity 0.15s;
+  transition:
+    background 0.15s,
+    opacity 0.15s;
 }
 .fv-btn-primary:hover:not(:disabled) {
   background: var(--oc-color-swatch-primary-hover, #4f46e5);
@@ -189,7 +201,9 @@ async function handleSubmit() {
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, opacity 0.15s;
+  transition:
+    background 0.15s,
+    opacity 0.15s;
 }
 .fv-btn-secondary:hover:not(:disabled) {
   background: var(--oc-color-background-muted, #f3f4f6);

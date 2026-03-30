@@ -138,6 +138,40 @@ func TestCreateFeature_NoAuth(t *testing.T) {
 	}
 }
 
+func TestCreateFeature_CapacityLimitReached(t *testing.T) {
+	mux, store := setupTestApp(t)
+	ctx := context.Background()
+
+	// Given we simulate reaching the 2500 limit by inserting mock feature stubs
+	// Note: Inserting 2500 rows in SQLite for a unit test will take a few milliseconds.
+	// For raw speed without loops, we configure the test environment specifically if needed, 
+	// but a fast loop of 2500 light inserts in WAL mode is fast enough for isolated tests.
+	for i := 0; i < 2500; i++ {
+		err := store.CreateFeature(ctx, "feat_mock_"+string(rune(i)), "Title", "Desc", "user-1")
+		if err != nil {
+			t.Fatalf("setup mock feature #%d failed: %v", i, err)
+		}
+	}
+
+	// When we submit the 2501st feature
+	body := `{"title":"Over The Limit Feature","description":"This should be heavily rejected"}`
+	req := requestWithUser(http.MethodPost, "/api/voting/features", []byte(body), "user-2")
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	// Then it is rejected with 403 Forbidden
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("capacity limit: got %d, want %d", rec.Code, http.StatusForbidden)
+	}
+
+	var errResp ErrorResponse
+	json.Unmarshal(rec.Body.Bytes(), &errResp)
+	if errResp.Code != "ERR_LIMIT_REACHED" {
+		t.Errorf("expected ERR_LIMIT_REACHED, got %q", errResp.Code)
+	}
+}
+
 // --- Step 510: List Features Tests ---
 
 func TestListFeatures_Empty(t *testing.T) {

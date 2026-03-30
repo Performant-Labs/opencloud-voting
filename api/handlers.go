@@ -79,6 +79,17 @@ func (h *VotingHandler) createFeature(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	count, err := h.store.CountFeatures(r.Context())
+	if err != nil {
+		h.respondError(w, http.StatusInternalServerError, "ERR_INTERNAL", "failed to check feature capacity limit")
+		h.logger.Error().Err(err).Msg("feature capacity check failed")
+		return
+	}
+	if count >= 2500 {
+		h.respondError(w, http.StatusForbidden, "ERR_LIMIT_REACHED", "The feature board has reached its maximum capacity of 2,500 requests.")
+		return
+	}
+
 	exists, err := h.store.FeatureExists(r.Context(), req.Title)
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, "ERR_INTERNAL", "failed to check feature existence")

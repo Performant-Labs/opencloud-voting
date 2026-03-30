@@ -1,7 +1,7 @@
-import { request, FullConfig } from '@playwright/test';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { request, FullConfig } from "@playwright/test";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,33 +15,52 @@ async function globalSetup(config: FullConfig) {
     baseURL,
     ignoreHTTPSErrors: true,
     extraHTTPHeaders: {
-      'Authorization': 'Basic ' + Buffer.from('admin:admin').toString('base64'),
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
+      Authorization: "Basic " + Buffer.from("admin:admin").toString("base64"),
+      Accept: "application/json",
+      "Content-Type": "application/json",
     },
   });
 
   const users = [
-    { displayName: 'Test Alpha', username: 'test_user_alpha', password: 'password123', email: 'alpha@example.com' },
-    { displayName: 'Test Beta', username: 'test_user_beta', password: 'password123', email: 'beta@example.com' },
-    { displayName: 'Test Gamma', username: 'test_user_gamma', password: 'password123', email: 'gamma@example.com' },
+    {
+      displayName: "Test Alpha",
+      username: "test_user_alpha",
+      password: "password123",
+      email: "alpha@example.com",
+    },
+    {
+      displayName: "Test Beta",
+      username: "test_user_beta",
+      password: "password123",
+      email: "beta@example.com",
+    },
+    {
+      displayName: "Test Gamma",
+      username: "test_user_gamma",
+      password: "password123",
+      email: "gamma@example.com",
+    },
   ];
 
-  console.log('→ Creating test users via Graph API...');
+  console.log("→ Creating test users via Graph API...");
 
   const createdUsers: any[] = [];
 
   for (const user of users) {
     // Check if user exists first to be idempotent
-    const checkRes = await requestContext.get(`/graph/v1.0/users/${user.username}`);
+    const checkRes = await requestContext.get(
+      `/graph/v1.0/users/${user.username}`,
+    );
     if (checkRes.ok()) {
       const existingUser = await checkRes.json();
-      console.log(`  User ${user.username} already exists (ID: ${existingUser.id}).`);
+      console.log(
+        `  User ${user.username} already exists (ID: ${existingUser.id}).`,
+      );
       createdUsers.push({ ...user, id: existingUser.id });
       continue;
     }
 
-    const res = await requestContext.post('/graph/v1.0/users', {
+    const res = await requestContext.post("/graph/v1.0/users", {
       data: {
         accountEnabled: true,
         displayName: user.displayName,
@@ -59,17 +78,19 @@ async function globalSetup(config: FullConfig) {
       createdUsers.push({ ...user, id: userData.id });
     } else {
       const errorText = await res.text();
-      console.error(`  Failed to create user ${user.username}: ${res.status()} ${errorText}`);
+      console.error(
+        `  Failed to create user ${user.username}: ${res.status()} ${errorText}`,
+      );
     }
   }
 
   // --- Space Creation & Sharing ---
   const spaceName = `Feature Voting Data ${Date.now()}`;
   console.log(`→ Creating project space: "${spaceName}"...`);
-  const drivesRes = await requestContext.get('/graph/v1.0/drives');
+  const drivesRes = await requestContext.get("/graph/v1.0/drives");
   let spaceId = null;
-  
-  const createRes = await requestContext.post('/graph/v1.0/drives', {
+
+  const createRes = await requestContext.post("/graph/v1.0/drives", {
     data: { name: spaceName },
   });
   if (createRes.ok()) {
@@ -77,33 +98,42 @@ async function globalSetup(config: FullConfig) {
     spaceId = newSpace.id;
     console.log(`  Created project space (ID: ${spaceId})`);
   } else {
-    console.error(`  Failed to create project space: ${createRes.status()} ${await createRes.text()}`);
+    console.error(
+      `  Failed to create project space: ${createRes.status()} ${await createRes.text()}`,
+    );
   }
 
   if (spaceId) {
-    console.log('→ Sharing project space with test users...');
+    console.log("→ Sharing project space with test users...");
     for (const u of createdUsers) {
-      const inviteRes = await requestContext.post(`/graph/v1beta1/drives/${spaceId}/root/invite`, {
-        data: {
-          recipients: [{ 
-            objectId: u.id,
-            "@libre.graph.recipient.type": "user"
-          }],
-          // UUID for "Can edit" on a Space Root in LibreGraph
-          roles: ['58c63c02-1d89-4572-916a-870abc5a1b7d'] 
-        }
-      });
+      const inviteRes = await requestContext.post(
+        `/graph/v1beta1/drives/${spaceId}/root/invite`,
+        {
+          data: {
+            recipients: [
+              {
+                objectId: u.id,
+                "@libre.graph.recipient.type": "user",
+              },
+            ],
+            // UUID for "Can edit" on a Space Root in LibreGraph
+            roles: ["58c63c02-1d89-4572-916a-870abc5a1b7d"],
+          },
+        },
+      );
       if (inviteRes.ok()) {
         console.log(`  Granted write access to ${u.username}`);
       } else {
         const errText = await inviteRes.text();
-        console.error(`  Failed to grant access to ${u.username}: ${inviteRes.status()} ${errText}`);
+        console.error(
+          `  Failed to grant access to ${u.username}: ${inviteRes.status()} ${errText}`,
+        );
       }
     }
   }
 
   // Save users to a file for tests to consume
-  const usersPath = path.join(__dirname, 'test-users.json');
+  const usersPath = path.join(__dirname, "test-users.json");
   fs.writeFileSync(usersPath, JSON.stringify(createdUsers, null, 2));
   console.log(`→ Saved ${createdUsers.length} users to ${usersPath}`);
 

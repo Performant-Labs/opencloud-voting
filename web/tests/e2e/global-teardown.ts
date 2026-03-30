@@ -1,7 +1,7 @@
-import { request, FullConfig } from '@playwright/test';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { request, FullConfig } from "@playwright/test";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,19 +15,19 @@ async function globalTeardown(config: FullConfig) {
     baseURL,
     ignoreHTTPSErrors: true,
     extraHTTPHeaders: {
-      'Authorization': 'Basic ' + Buffer.from('admin:admin').toString('base64'),
+      Authorization: "Basic " + Buffer.from("admin:admin").toString("base64"),
     },
   });
 
-  const usersPath = path.join(__dirname, 'test-users.json');
+  const usersPath = path.join(__dirname, "test-users.json");
   if (!fs.existsSync(usersPath)) {
-    console.log('  No test-users.json found. Skipping cleanup.');
+    console.log("  No test-users.json found. Skipping cleanup.");
     return;
   }
 
-  const users = JSON.parse(fs.readFileSync(usersPath, 'utf8'));
+  const users = JSON.parse(fs.readFileSync(usersPath, "utf8"));
 
-  console.log('→ Cleaning up test users via Graph API...');
+  console.log("→ Cleaning up test users via Graph API...");
 
   for (const user of users) {
     if (user.id) {
@@ -35,13 +35,15 @@ async function globalTeardown(config: FullConfig) {
       if (res.ok()) {
         console.log(`  Deleted user: ${user.username} (ID: ${user.id})`);
       } else {
-        console.error(`  Failed to delete user ${user.username} (ID: ${user.id}): ${res.status()}`);
+        console.error(
+          `  Failed to delete user ${user.username} (ID: ${user.id}): ${res.status()}`,
+        );
       }
     }
   }
 
   fs.unlinkSync(usersPath);
-  console.log('→ Cleaned up test user data.');
+  console.log("→ Cleaned up test user data.");
 
   await requestContext.dispose();
 }

@@ -1,3 +1,3 @@
-import openCloudConfig from '@opencloud-eu/eslint-config'
+import openCloudConfig from "@opencloud-eu/eslint-config";
 
-export default [...openCloudConfig]
+export default [...openCloudConfig];

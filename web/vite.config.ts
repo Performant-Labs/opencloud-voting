@@ -1,5 +1,5 @@
-import { defineConfig } from '@opencloud-eu/extension-sdk'
+import { defineConfig } from "@opencloud-eu/extension-sdk";
 
 export default defineConfig({
-  name: 'web-app-feature-voting'
-})
+  name: "web-app-feature-voting",
+});
