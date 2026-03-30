@@ -478,3 +478,33 @@ This document records every architectural decision, technical gap bridged, and d
 ### Key Finding: Architecture Confirmed
 The rate limiter (`30 req/s, burst=60` per-user token bucket) acts as the primary admission control mechanism. Under any realistic concurrent load from a single user, the WAL is never contended — the 60-request burst is processed in ~70ms, the rest are rejected with a clear 429. This validates the architectural decision to use SQLite WAL + per-user rate limiting over a more complex queuing system.
 
+---
+
+## Phase 1100: Project Internal Documentation
+
+### 1110 — README.md Update
+- **When**: 2026-03-29T21:36 PDT
+- **How**: Complete rewrite of `README.md`. The original content described the abandoned WebDAV architecture ("Frontend-only OpenCloud web extension. All data is stored as JSON files via WebDAV"). Updated to:
+  - ASCII architecture diagram showing Browser → Proxy → Go Sidecar → SQLite
+  - Prerequisites (Go 1.22+, Docker added alongside existing Node/pnpm)
+  - Quick Start: frontend build + Docker Compose sidecar + proxy route config
+  - Full REST API endpoint table (10 endpoints)
+  - Current data model (SQLite schema, not JSON file layout)
+  - Tech stack table with Go, SQLite, Playwright, hey
+  - Testing section with E2E, unit test, and load test commands
+
+### 1120 — ARCHITECTURE.md Update
+- **When**: 2026-03-29T21:37 PDT
+- **How**: Complete rewrite of `docs/ARCHITECTURE.md` with a Phase 400 addendum that:
+  - Marks the original Option A (WebDAV) as superseded
+  - Preserves the original rationale for historical reference
+  - Documents the two specific security flaws that triggered the reversal:
+    1. **No server-side authorization enforcement** — any authenticated user could `PUT` directly to the WebDAV path and overwrite other users' vote counts
+    2. **TOCTOU race condition** — concurrent votes silently lost due to read-modify-write pattern; ETags convert silent overwrites to errors but don't prevent lost writes
+  - Explains why the Go sidecar aligns with upstream OpenCloud patterns (same pattern as the `store` microservice)
+  - Documents key implementation decisions with rationale (WAL mode, pure Go SQLite, per-user rate limiter, `COUNT(DISTINCT)` derivation)
+  - Embeds Phase 1000 concurrency verification data (P95 41.7ms threshold, P95 77.3ms spike, 0% error rate)
+
+### Post-Phase 1100 Submittability Verification
+- `README.md`: accurately describes the current Go sidecar architecture, not the abandoned WebDAV approach.
+- `ARCHITECTURE.md`: documents exactly why WebDAV was abandoned (security flaws), why the Go sidecar was chosen (upstream alignment), and provides hard evidence of production readiness (load test data).
