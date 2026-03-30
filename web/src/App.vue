@@ -385,7 +385,8 @@ onUnmounted(() => {
   margin-bottom: 4px;
 }
 .fv-subtitle {
-  color: var(--oc-color-text-muted, #6b7280);
+  color: inherit;
+  opacity: 0.6;
 }
 
 /* Error banner */
@@ -446,13 +447,15 @@ onUnmounted(() => {
   margin-bottom: 14px;
 }
 .fv-count {
-  color: var(--oc-color-text-muted, #6b7280);
+  color: inherit;
+  opacity: 0.6;
   font-weight: 400;
   font-size: 0.95rem;
 }
 .fv-loading,
 .fv-empty {
-  color: var(--oc-color-text-muted, #6b7280);
+  color: inherit;
+  opacity: 0.6;
   padding: 16px 0;
 }
 
@@ -466,8 +469,8 @@ onUnmounted(() => {
   border: 1px solid var(--oc-color-border, #d1d5db);
   border-radius: 6px;
   font-size: 1rem;
-  background: var(--oc-color-background-default, #fff);
-  color: var(--oc-color-text-default, #111827);
+  background: var(--oc-color-background-default, transparent);
+  color: inherit;
   transition:
     border-color 0.15s,
     box-shadow 0.15s;
@@ -491,7 +494,7 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  background: var(--oc-color-background-default, #fff);
+  background: var(--oc-color-background-default, transparent);
   border: 1px solid var(--oc-color-border, #e5e7eb);
   border-radius: 8px;
   padding: 14px 16px;
@@ -515,7 +518,8 @@ onUnmounted(() => {
   border-radius: 6px;
   padding: 4px 8px;
   cursor: pointer;
-  color: var(--oc-color-text-muted, #6b7280);
+  color: inherit;
+  opacity: 0.5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -548,7 +552,7 @@ onUnmounted(() => {
 .fv-vote-count {
   font-weight: 700;
   font-size: 1rem;
-  color: var(--oc-color-text-default, #111827);
+  color: inherit;
 }
 
 /* Content */
@@ -562,14 +566,16 @@ onUnmounted(() => {
   margin-bottom: 4px;
 }
 .fv-item-desc {
-  color: var(--oc-color-text-muted, #6b7280);
+  color: inherit;
+  opacity: 0.65;
   font-size: 0.9rem;
   margin: 0 0 6px;
   white-space: pre-wrap;
   word-break: break-word;
 }
 .fv-item-meta {
-  color: var(--oc-color-text-muted, #9ca3af);
+  color: inherit;
+  opacity: 0.5;
   font-size: 0.8rem;
 }
 
@@ -584,7 +590,8 @@ onUnmounted(() => {
   border: 1px solid transparent;
   border-radius: 6px;
   cursor: pointer;
-  color: var(--oc-color-text-muted, #6b7280);
+  color: inherit;
+  opacity: 0.5;
   font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: 2px;
@@ -605,7 +612,7 @@ onUnmounted(() => {
   opacity: 1;
 }
 .fv-actions-trigger:hover {
-  color: var(--oc-color-text-default, #111827);
+  color: inherit;
   background: var(--oc-color-background-muted, #f3f4f6);
   border-color: var(--oc-color-border, #d1d5db);
 }
@@ -617,7 +624,7 @@ onUnmounted(() => {
   z-index: 100;
   min-width: 160px;
   margin-top: 4px;
-  background: var(--oc-color-background-default, #fff);
+  background: var(--oc-color-background-default, transparent);
   border: 1px solid var(--oc-color-border, #e5e7eb);
   border-radius: 10px;
   box-shadow:
@@ -652,7 +659,7 @@ onUnmounted(() => {
   background: none;
   cursor: pointer;
   font-size: 0.9rem;
-  color: var(--oc-color-text-default, #111827);
+  color: inherit;
   text-align: left;
   transition:
     background 0.12s,
@@ -687,7 +694,8 @@ onUnmounted(() => {
   background: none;
   cursor: pointer;
   font-size: 0.78rem;
-  color: var(--oc-color-text-muted, #6b7280);
+  color: inherit;
+  opacity: 0.6;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 .fv-comments-toggle:hover {
@@ -705,7 +713,8 @@ onUnmounted(() => {
 .fv-comments-loading,
 .fv-comments-empty {
   font-size: 0.82rem;
-  color: var(--oc-color-text-muted, #9ca3af);
+  color: inherit;
+  opacity: 0.5;
   margin: 0 0 10px;
 }
 .fv-comment {
@@ -720,11 +729,12 @@ onUnmounted(() => {
 .fv-comment-author {
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--oc-color-text-default, #111827);
+  color: inherit;
 }
 .fv-comment-date {
   font-size: 0.76rem;
-  color: var(--oc-color-text-muted, #9ca3af);
+  color: inherit;
+  opacity: 0.5;
 }
 .fv-comment-delete {
   margin-left: auto;
@@ -744,7 +754,7 @@ onUnmounted(() => {
 }
 .fv-comment-body {
   font-size: 0.88rem;
-  color: var(--oc-color-text-default, #374151);
+  color: inherit;
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
@@ -765,8 +775,8 @@ onUnmounted(() => {
   font-size: 0.88rem;
   font-family: inherit;
   resize: vertical;
-  background: var(--oc-color-background-default, #fff);
-  color: var(--oc-color-text-default, #111827);
+  background: var(--oc-color-background-default, transparent);
+  color: inherit;
   transition: border-color 0.15s;
 }
 .fv-comment-input:focus {

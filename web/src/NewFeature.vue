@@ -110,7 +110,8 @@ async function handleSubmit() {
   margin-bottom: 4px;
 }
 .fv-subtitle {
-  color: var(--oc-color-text-muted, #6b7280);
+  color: inherit;
+  opacity: 0.6;
 }
 
 /* Error banner */
@@ -145,7 +146,7 @@ async function handleSubmit() {
 
 /* Submit form */
 .fv-submit-form {
-  background: var(--oc-color-background-default, #fff);
+  background: var(--oc-color-background-default, transparent);
   border: 1px solid var(--oc-color-border, #e5e7eb);
   border-radius: 8px;
   padding: 20px;
@@ -158,8 +159,8 @@ async function handleSubmit() {
   padding: 10px 12px;
   border: 1px solid var(--oc-color-border, #d1d5db);
   border-radius: 6px;
-  background: var(--oc-color-background-default, #fff);
-  color: var(--oc-color-text-default, #111827);
+  background: var(--oc-color-background-default, transparent);
+  color: inherit;
   font-size: 0.95rem;
   box-sizing: border-box;
   transition: border-color 0.15s;
@@ -206,8 +207,8 @@ async function handleSubmit() {
   padding: 8px 20px;
   border: 1px solid var(--oc-color-border, #d1d5db);
   border-radius: 6px;
-  background: var(--oc-color-background-default, #fff);
-  color: var(--oc-color-text-default, #111827);
+  background: var(--oc-color-background-default, transparent);
+  color: inherit;
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;

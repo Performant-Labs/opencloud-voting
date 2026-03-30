@@ -150,16 +150,23 @@ func (a *OIDCAuth) Middleware(next http.Handler) http.Handler {
 		}
 
 		// Extract display name for comment attribution.
-		// preferred_username > name > sub — never persisted for features/votes.
+		// OpenCloud stores the human-readable username in the custom "lg.i" claim (un field).
+		// Priority: preferred_username > lg.i.un > name > sub.
 		var claims struct {
 			PreferredUsername string `json:"preferred_username"`
 			Name              string `json:"name"`
+			LGIdentity        struct {
+				Username string `json:"un"`
+			} `json:"lg.i"`
 		}
 		userName := userID
 		if err := idToken.Claims(&claims); err == nil {
-			if claims.PreferredUsername != "" {
+			switch {
+			case claims.PreferredUsername != "":
 				userName = claims.PreferredUsername
-			} else if claims.Name != "" {
+			case claims.LGIdentity.Username != "":
+				userName = claims.LGIdentity.Username
+			case claims.Name != "":
 				userName = claims.Name
 			}
 		}

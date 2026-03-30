@@ -57,26 +57,29 @@ defineProps<{
 .fv-breadcrumbs li {
   display: flex;
   align-items: center;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-weight: 500;
   letter-spacing: 0.01em;
 }
 .fv-breadcrumb-link {
-  color: var(--oc-color-text-muted, #6b7280);
+  color: inherit;
+  opacity: 0.6;
   text-decoration: none;
-  transition: color 0.15s ease;
+  transition: color 0.15s ease, opacity 0.15s ease;
 }
 .fv-breadcrumb-link:hover {
   color: var(--oc-color-swatch-primary-default, #6366f1);
+  opacity: 1;
 }
 .fv-breadcrumb-separator {
-  color: var(--oc-color-text-muted, #9ca3af);
+  color: currentColor;
   margin-left: 8px;
   stroke-width: 2.5;
-  opacity: 0.6;
+  opacity: 0.4;
 }
 .fv-breadcrumb-current {
-  color: var(--oc-color-text-default, #111827);
+  color: inherit;
+  font-weight: 600;
   cursor: default;
 }
 

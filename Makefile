@@ -1,4 +1,7 @@
-.PHONY: install build build-watch lint test clean dev
+.PHONY: install build build-watch lint test clean dev deploy
+
+OC_SERVER_DIR ?= $(HOME)/Sites/pl-opencloud-server
+OC_APP_DIR    := $(OC_SERVER_DIR)/config/opencloud/apps/feature-voting
 
 ## Install all dependencies
 install:
@@ -35,6 +38,12 @@ check-types:
 ## Format code
 format:
 	cd web && pnpm format:write
+
+## Build, copy to OpenCloud server, and restart the web container
+deploy: build
+	cp -r web/dist/* $(OC_APP_DIR)/
+	cd $(OC_SERVER_DIR) && docker compose restart opencloud
+	@echo "→ Deployed and restarted."
 
 ## Clean all build artifacts
 clean:
