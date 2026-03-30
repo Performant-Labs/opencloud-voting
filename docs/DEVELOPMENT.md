@@ -31,6 +31,7 @@ opencloud-voting/
 │   ├── tests/
 │   │   ├── e2e/                # Playwright E2E suite (19 tests across 5 specs)
 │   │   │   ├── comments.spec.ts
+│   │   │   ├── get-admin-token.spec.ts
 │   │   │   ├── smoke.spec.ts
 │   │   │   ├── vote-targeting.spec.ts
 │   │   │   └── voting.spec.ts

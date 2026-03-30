@@ -66,8 +66,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture decis
 
 See **[INSTALLATION.md](INSTALLATION.md)** for full instructions, including:
 
-- **Method A — Sidecar Override** (recommended): drop a single compose override file into your deployment directory
-- **Method B — COMPOSE_FILE Append**: upstream-aligned method matching opencloud conventions (Collabora, Radicale, etc.)
+- **Method A — COMPOSE_FILE Append** (recommended): upstream-aligned method matching OpenCloud conventions (Collabora, Radicale, etc.)
+- **Method B — Override File**: drop a `docker-compose.override.yml` into your deployment directory
 
 ---
 
@@ -93,7 +93,7 @@ cd api && go run .
 | `cd web && pnpm lint` | Lint frontend code |
 | `cd api && go test ./...` | Run Go unit tests |
 | `cd api && go build -o voting-app .` | Build Go binary |
-| `cd web && npx playwright test` | Run E2E tests (requires live OpenCloud) |
+| `ADMIN_PASSWORD=… npx playwright test` | Run E2E tests (requires live OpenCloud) |
 
 ---
 
