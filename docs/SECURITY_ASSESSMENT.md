@@ -100,7 +100,7 @@ The Phase 400 security assessment documented two "future hardening" items. Both 
 | Previous Finding | Status |
 |:----------------|:-------|
 | [LOW] Rate limiting not implemented | ✅ **Resolved.** Per-user token bucket (30 req/s, burst 60) implemented in `api/middleware/rate_limit.go`. Verified live in D1 above and Phase 1020/1030 load tests. |
-| [INFORMATIONAL] Host volume permissions | ✅ **Resolved by architecture.** The SQLite database runs inside a Docker container volume (`opencloud-extensions-data`), not on a host-accessible path. Container isolation enforces access boundaries without manual `chmod`. |
+| [INFORMATIONAL] Host volume permissions | ✅ **Resolved by architecture.** The SQLite database runs inside a Docker container volume (`${COMPOSE_PROJECT_NAME}_shared-data`), not on a host-accessible path. Container isolation enforces access boundaries without manual `chmod`. |
 
 ---
 
