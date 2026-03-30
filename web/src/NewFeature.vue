@@ -33,7 +33,7 @@ async function handleSubmit() {
 
   const success = await createFeature(title, newDescription.value.trim())
   if (success) {
-    router.push('/feature-voting/board')
+    router.push({ name: 'voting-board' })
   } else if (error.value) {
     formError.value = error.value
   }
@@ -87,7 +87,7 @@ async function handleSubmit() {
             type="button"
             class="fv-btn-secondary"
             :disabled="submitting"
-            @click="$router.push('/feature-voting/board')"
+            @click="$router.push({ name: 'voting-board' })"
           >
             Cancel
           </button>

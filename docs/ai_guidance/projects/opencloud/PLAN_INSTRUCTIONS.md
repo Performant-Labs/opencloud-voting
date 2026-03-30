@@ -18,3 +18,7 @@ Before generating code or executing this plan, you **MUST** adhere to the follow
 4. **Stateless Operations & Context Isolation**:
    - The Go application must remain completely stateless. All persistent state must be pushed to SQLite.
    - Every major function (especially OpenCloud API adapters and DB queries) must accept and pass a `context.Context` as its first parameter to handle timeouts properly.
+
+5. **Reading Project Files**:
+   - Always use file tools (`Read`, `Grep`, `Glob`) to read local project files. Never open a browser for content that exists on disk.
+   - If external URLs must be fetched, use `WebFetch` — not full browser automation tools.

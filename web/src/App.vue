@@ -149,7 +149,7 @@ onUnmounted(() => {
         </div>
         <button
           class="fv-btn-primary"
-          @click="$router.push('/feature-voting/new')"
+          @click="$router.push({ name: 'new-feature' })"
         >
           Suggest a Feature
         </button>
