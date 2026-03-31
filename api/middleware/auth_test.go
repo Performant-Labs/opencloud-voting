@@ -28,7 +28,7 @@ func testLogger() zerolog.Logger {
 // --- Auth Middleware Tests ---
 
 func TestAuthMiddleware_MissingHeader(t *testing.T) {
-	auth := NewOIDCAuth("https://unused.test", testLogger())
+	auth := NewOIDCAuth("https://unused.test", false, testLogger())
 
 	handler := auth.Middleware(stubHandler())
 	req := httptest.NewRequest(http.MethodGet, "/api/voting/features", nil)
@@ -42,7 +42,7 @@ func TestAuthMiddleware_MissingHeader(t *testing.T) {
 }
 
 func TestAuthMiddleware_MalformedHeader(t *testing.T) {
-	auth := NewOIDCAuth("https://unused.test", testLogger())
+	auth := NewOIDCAuth("https://unused.test", false, testLogger())
 
 	handler := auth.Middleware(stubHandler())
 	req := httptest.NewRequest(http.MethodGet, "/api/voting/features", nil)
@@ -59,7 +59,7 @@ func TestAuthMiddleware_MalformedHeader(t *testing.T) {
 func TestAuthMiddleware_InvalidToken(t *testing.T) {
 	// Point at a non-existent issuer. The provider discovery will fail,
 	// and the middleware should return 503 (service unavailable).
-	auth := NewOIDCAuth("https://nonexistent.invalid", testLogger())
+	auth := NewOIDCAuth("https://nonexistent.invalid", false, testLogger())
 
 	handler := auth.Middleware(stubHandler())
 	req := httptest.NewRequest(http.MethodGet, "/api/voting/features", nil)

@@ -59,7 +59,7 @@ format:
 ## Build, copy to OpenCloud server, and restart the web container
 deploy: build
 	cp -r web/dist/* $(OC_APP_DIR)/
-	cd $(OC_SERVER_DIR) && docker compose restart opencloud
+	cd $(OC_SERVER_DIR) && docker compose up -d --force-recreate opencloud
 	@echo "→ Deployed and restarted."
 
 ## Clean all build artifacts

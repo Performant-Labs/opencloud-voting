@@ -72,7 +72,8 @@ func main() {
 	if issuerURL == "" {
 		issuerURL = "https://cloud.opencloud.test"
 	}
-	auth := middleware.NewOIDCAuth(issuerURL, logger)
+	insecure := os.Getenv("OC_INSECURE") == "true"
+	auth := middleware.NewOIDCAuth(issuerURL, insecure, logger)
 
 	// Per-user rate limiter: 30 requests per second, burst of 60.
 	rateLimiter := middleware.NewRateLimiter(30, 60, time.Second, logger)

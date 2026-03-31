@@ -13,6 +13,7 @@ services:
       - opencloud-net
     environment:
       OC_OIDC_ISSUER: "https://${OC_DOMAIN:-cloud.opencloud.test}"
+      OC_INSECURE: "${INSECURE:-false}"
       DB_PATH: "/data/feature-voting.sqlite"
       OC_DB_URL: "${VOTING_DB_URL:-}"
       OC_LOG_LEVEL: "${LOG_LEVEL:-info}"

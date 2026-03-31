@@ -139,8 +139,8 @@ If `OC_DOMAIN` is already set in your `.env` (which it should be if your OpenClo
 # Start the voting sidecar
 docker compose up -d voting-app
 
-# Restart OpenCloud so it picks up the new proxy route and web extension
-docker compose restart opencloud
+# Update the services to pick up the new extension and proxy route
+docker compose up -d
 ```
 
 ### Step 6 — Verify
@@ -213,7 +213,7 @@ COMPOSE_PROJECT_NAME=opencloud-compose
 
 ```bash
 docker compose up -d voting-app
-docker compose restart opencloud
+docker compose up -d opencloud
 ```
 
 ### Step 7 — Verify
@@ -231,6 +231,7 @@ The defaults work for most deployments. Adjust these only if needed.
 | Variable | Default | What it does |
 |:---------|:--------|:-------------|
 | `OC_DOMAIN` | `cloud.opencloud.test` | Your OpenCloud domain. The sidecar uses this to validate login tokens. |
+| `OC_INSECURE` | `${INSECURE:-false}` | Set to `true` to skip TLS verification for local development with self-signed certs. |
 | `LOG_LEVEL` | `info` | Log detail: `debug`, `info`, `warn`, or `error` |
 | `VOTING_DB_URL` | _(empty)_ | Optional PostgreSQL connection string. If set, the sidecar uses PostgreSQL instead of the built-in SQLite database. Format: `postgres://user:pass@host/db?sslmode=disable` |
 
@@ -262,7 +263,7 @@ docker compose pull voting-app
 
 # 3. Restart
 docker compose up -d voting-app
-docker compose restart opencloud
+docker compose up -d opencloud
 ```
 
 The database schema is migrated automatically on startup — no manual steps needed.
@@ -290,7 +291,7 @@ rm -rf feature-voting/
 rm -f docker-compose.override.yml
 
 # Restart OpenCloud to apply changes
-docker compose restart opencloud
+docker compose up -d
 ```
 
 To also **delete all voting data** (irreversible):
@@ -328,7 +329,7 @@ rm /tmp/fv.zip
 echo "✓ Files downloaded. Now:"
 echo "  1. Add :feature-voting/opencloud.yml to COMPOSE_FILE in .env"
 echo "  2. If needed, set OC_DOMAIN in .env"
-echo "  3. docker compose up -d voting-app && docker compose restart opencloud"
+echo "  3. docker compose up -d"
 ```
 
 ## Quick Install (Method B)
@@ -358,9 +359,9 @@ curl -fsSL \
    mv config/opencloud/apps/feature-voting/dist/* config/opencloud/apps/feature-voting/
    rmdir config/opencloud/apps/feature-voting/dist
    ```
-2. Restart OpenCloud:
+2. Update the system:
    ```bash
-   docker compose restart opencloud
+   docker compose up -d
    ```
 
 ### Voting API returns 404 or the OpenCloud HTML page
@@ -377,9 +378,9 @@ The proxy route is not being picked up. Check:
        volumes:
          - ./config/opencloud/proxy.yaml:/etc/opencloud/proxy.yaml
    ```
-3. Restart OpenCloud after any proxy.yaml changes:
+3. Update OpenCloud after any proxy.yaml changes:
    ```bash
-   docker compose restart opencloud
+   docker compose up -d
    ```
 
 ### Voting API returns 401 (Unauthorized)
@@ -388,6 +389,21 @@ The sidecar couldn't validate your login token. Check that `OC_DOMAIN` in `.env`
 ```bash
 grep OC_DOMAIN .env
 ```
+
+### Voting API returns "authentication service unavailable"
+
+The sidecar cannot reach the OpenCloud OIDC issuer to validate your login token. This is often caused by a certificate mismatch in local development (e.g. using `mkcert`).
+
+**Quick Fix for Local Dev:**
+Add `OC_INSECURE=true` to your `.env` file (or set `INSECURE=true` which is the OpenCloud default). This tells the sidecar to skip certificate verification.
+
+```bash
+echo "OC_INSECURE=true" >> .env
+docker compose up -d voting-app
+```
+
+> [!WARNING]
+> Never set `OC_INSECURE=true` in a production environment.
 
 ### Container keeps restarting
 

@@ -21,4 +21,4 @@ Before generating code or executing this plan, you **MUST** adhere to the follow
 
 5. **Reading Project Files**:
    - Always use file tools (`Read`, `Grep`, `Glob`) to read local project files. Never open a browser for content that exists on disk.
-   - If external URLs must be fetched, use `WebFetch` — not full browser automation tools.
+   - If external URLs must be fetched, use `curl` via Bash — not browser automation tools. `curl` is pre-installed on macOS and all standard Linux servers and requires no dependencies.

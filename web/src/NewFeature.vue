@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue"
-import { useAuthStore } from "@opencloud-eu/web-pkg"
+import { useAuthStore, useRouter } from "@opencloud-eu/web-pkg"
 import { useVotingApi } from "./composables/useVotingApi"
 import Breadcrumbs from "./components/Breadcrumbs.vue"
 
@@ -21,8 +21,10 @@ const newTitle = ref("")
 const newDescription = ref("")
 const formError = ref("")
 
+const router = useRouter()
+
 function navigateToBoard() {
-  window.location.href = '/feature-voting/board'
+  router.push({ path: '/feature-voting/board' })
 }
 
 async function handleSubmit() {

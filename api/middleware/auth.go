@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"crypto/tls"
 	"context"
 	"fmt"
 	"net/http"
@@ -64,15 +65,17 @@ type OIDCAuth struct {
 	ready    bool
 
 	issuerURL string
+	insecure  bool
 }
 
 // NewOIDCAuth creates a new OIDC authentication middleware.
 // The issuerURL should be the OpenCloud instance URL (e.g., https://cloud.opencloud.test).
 // Provider discovery is deferred until the first request to handle startup ordering
 // (the OpenCloud container may not be ready when the sidecar boots).
-func NewOIDCAuth(issuerURL string, logger zerolog.Logger) *OIDCAuth {
+func NewOIDCAuth(issuerURL string, insecure bool, logger zerolog.Logger) *OIDCAuth {
 	return &OIDCAuth{
 		issuerURL: issuerURL,
+		insecure:  insecure,
 		logger:    logger,
 	}
 }
@@ -88,7 +91,17 @@ func (a *OIDCAuth) initProvider(ctx context.Context) error {
 		return nil
 	}
 
-	a.logger.Info().Str("issuer", a.issuerURL).Msg("discovering OIDC provider")
+	a.logger.Info().Str("issuer", a.issuerURL).Bool("insecure", a.insecure).Msg("discovering OIDC provider")
+
+	// If insecure mode is enabled, we create a custom HTTP client that skips TLS verification.
+	// This is standard practice in OpenCloud/oCIS for local development (INSECURE=true).
+	if a.insecure {
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		client := &http.Client{Transport: tr}
+		ctx = oidc.ClientContext(ctx, client)
+	}
 
 	provider, err := oidc.NewProvider(ctx, a.issuerURL)
 	if err != nil {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, computed } from "vue"
 import Fuse from "fuse.js"
-import { useAuthStore } from "@opencloud-eu/web-pkg"
+import { useAuthStore, useRouter } from "@opencloud-eu/web-pkg"
 import { useVotingApi } from "./composables/useVotingApi"
 import Breadcrumbs from "./components/Breadcrumbs.vue"
 import type { Comment } from "./types"
@@ -131,8 +131,10 @@ onMounted(() => {
   document.addEventListener("click", handleClickOutside)
 })
 
+const router = useRouter()
+
 function navigateToNew() {
-  window.location.href = '/feature-voting/new'
+  router.push({ path: '/feature-voting/new' })
 }
 
 onUnmounted(() => {
